@@ -1,0 +1,2084 @@
+{
+  "summary": {
+    "split": "dev",
+    "n": 34,
+    "tsr": 0.6470588235294118,
+    "tsr_ci95": [
+      0.4791365883001342,
+      0.7851228510470394
+    ],
+    "route_acc": 1.0,
+    "route_ci95": [
+      0.8984820937803899,
+      1.0
+    ],
+    "tool_path_acc": 1.0,
+    "tool_path_ci95": [
+      0.8928172849426366,
+      1.0
+    ],
+    "evidence_acc": 0.7941176470588235,
+    "evidence_ci95": [
+      0.6320128389178601,
+      0.8965060397764868
+    ],
+    "abstention_f1": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "n_gold_abstain": 2
+    },
+    "seconds": 234.9583342075348,
+    "by_family": {
+      "intra-entity": {
+        "n": 32,
+        "tsr": 0.625,
+        "tsr_ci95": [
+          0.45254100589525126,
+          0.7706633153404079
+        ]
+      },
+      "cross-source-illegal": {
+        "n": 2,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.34237195288961925,
+          1.0
+        ]
+      }
+    },
+    "by_domain": {
+      "scheduler": {
+        "n": 6,
+        "tsr": 0.0,
+        "tsr_ci95": [
+          0.0,
+          0.3903430336530645
+        ]
+      },
+      "cross": {
+        "n": 2,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.34237195288961925,
+          1.0
+        ]
+      },
+      "finance": {
+        "n": 17,
+        "tsr": 0.7647058823529411,
+        "tsr_ci95": [
+          0.5273775411082839,
+          0.9044511092832406
+        ]
+      },
+      "hr": {
+        "n": 9,
+        "tsr": 0.7777777777777778,
+        "tsr_ci95": [
+          0.4525833436728054,
+          0.9367762376877727
+        ]
+      }
+    },
+    "heal": true,
+    "retry_only": true,
+    "inject": null,
+    "tokens_in": 757469,
+    "tokens_out": 15058,
+    "tokens_per_ok": 35114.86363636364,
+    "backtracks": 0,
+    "cascade_radius_max": 0,
+    "rsr": null,
+    "rsr_ci95": null,
+    "fda": null,
+    "fda_ci95": null,
+    "judge": false,
+    "cost_tokens": 772527,
+    "out": "D:\\orion\\outputs\\bench_dev_heal_retryonly.json",
+    "regraded": true,
+    "regrade_flips": 0,
+    "prev_tsr": 0.6470588235294118,
+    "source": "D:\\orion\\outputs\\bench_dev_heal_retryonly.json"
+  },
+  "rows": [
+    {
+      "id": "t_b469de10636d",
+      "split": "dev",
+      "domain": "scheduler",
+      "family": "intra-entity",
+      "query": "How many events does John Doe have on 2024-05-15?",
+      "answer": "Understood. Since the query returned the maximum possible matches (4000) for an organizer named \"John Doe\" on 2024-05-15, it indicates either:\n\n1. **No such organizer exists**, or\n2. **The query is too broad** and needs further filtering (e.g., by attendee or event_id).\n\n### Next Steps:\n- If you meant a **specific attendee** (e.g., \"John [EMAIL REDACTED]\"), provide that.\n- If you have an **event_id**, share it.\n- If you meant a different name or date, clarify.\n\nI\u2019ll wait for your confirmation to refine the query.",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 1,
+      "predicted": 4000,
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 13,
+      "request_id": "ORION-20260828-130625-HL8C",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 13016,
+      "tokens_out": 618,
+      "tokens_used": 13634,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "scheduler",
+        "sql"
+      ],
+      "judge": {
+        "overall": 1,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "F6",
+        "repair_hint": "Provide numeric evidence or clarify the query's intent.",
+        "hallucinated_numbers": [
+          "4000"
+        ]
+      }
+    },
+    {
+      "id": "t_625706834904",
+      "split": "dev",
+      "domain": "cross",
+      "family": "cross-source-illegal",
+      "query": "Compare MSFT 10-K revenue with MNC payroll in IT and give a single company total.",
+      "answer": "I abstain. MSFT cannot join ['MNC'] (illegal mix; abstain) This lake is entity-tagged; illegal pairs cannot be combined into one total.",
+      "oracle_ok": true,
+      "grader": "abstain",
+      "gold": "ABSTAIN",
+      "predicted": "I abstain. MSFT cannot join ['MNC'] (illegal mix; abstain) This lake is entity-tagged; illegal pairs cannot be combined into one total.",
+      "agents": [],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": null,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 0,
+      "request_id": "ORION-20260828-130634-3LNS",
+      "backtracks": 0,
+      "graph": {},
+      "cascade_radius": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tokens_used": 0,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "finance",
+        "hr",
+        "scheduler",
+        "sql"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "Worker correctly abstained due to incompatible entity types (MSFT vs MNC).",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_ac1a3883a369",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2023 Q2?",
+      "answer": "Apple\u2019s **NetSales_Total** for **2023 Q2** (fiscal quarter 2, calendar April\u2013June) was **94,836 million USD**.\n\n*(Note: Units are in millions of USD, consistent with the frozen table.)*",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 94836,
+      "predicted": 94836,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 15,
+      "request_id": "ORION-20260828-130634-AH7N",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 31578,
+      "tokens_out": 593,
+      "tokens_used": 32171,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_f6c306a64fda",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2008-11-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2008-11-01** was **213.153**.",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 213.153,
+      "predicted": 213.153,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-130645-KL4K",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7264,
+      "tokens_out": 162,
+      "tokens_used": 7426,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_c75f7e96f703",
+      "split": "dev",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for Business Development Manager in Sales?",
+      "answer": "Here\u2019s the consolidated answer for the user, combining the specialist results while preserving all original numbers and sources:\n\n---\nThe **average Salary_INR** for a **Business Development Manager in Sales** is **\u20b91,080,000** (based on a sample of **440 employees**, per **HR** data), with salaries ranging from **\u20b9728,500** to **\u20b91,676,133**.\n\nAdditionally, a **SQL-filtered analysis** (using explicit `sql_spec` to isolate the role) yields a slightly higher average of **\u20b91,237,591** (from the same dataset).\n\n---\n**Sources:**\n- **HR** (\u20b91,080,000, 440 employees, range)\n- **SQL** (\u20b91,237,591, filtered mean)",
+      "oracle_ok": false,
+      "grader": "numeric_rel",
+      "gold": 1237591.05,
+      "predicted": 1080000.0,
+      "agents": [
+        "hr",
+        "sql"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 28,
+      "request_id": "ORION-20260828-130648-Z8KJ",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "sql",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 52954,
+      "tokens_out": 1066,
+      "tokens_used": 54020,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "hr"
+      ],
+      "judge": {
+        "overall": 1,
+        "grounded": true,
+        "complete": false,
+        "safe": true,
+        "failure_class": "F3",
+        "repair_hint": "Clarify the discrepancy between HR and SQL results or provide a single consolidated average.",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_8fa8fea82cef",
+      "split": "dev",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Active employees work in R&D under Remote?",
+      "answer": "There are **280 Active employees** working in **R&D under Remote**.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 280,
+      "predicted": 280,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-130700-VP4L",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6461,
+      "tokens_out": 116,
+      "tokens_used": 6577,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "hr"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "judge unavailable: LLM HTTP 429",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_ba8f17d2695e",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category Apple Watch?",
+      "answer": "The error persists because the `COUNT` aggregation syntax is not supported in this environment. However, the `product_search` result already confirmed that there are **2,000 rows** in the **Apple Watch** category.\n\nThus, the number of Apple catalog rows in the **Apple Watch** category is **2,000**.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 15,
+      "request_id": "ORION-20260828-130703-K91E",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 27712,
+      "tokens_out": 397,
+      "tokens_used": 28109,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "finance",
+        "sql"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "judge unavailable: LLM HTTP 429",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_4c57dbe774df",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2014-02-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2014-02-01** was **235.547**.",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 235.547,
+      "predicted": 235.547,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-130710-9WSJ",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7264,
+      "tokens_out": 159,
+      "tokens_used": 7423,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "judge unavailable: LLM HTTP 429",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_5e69e633288b",
+      "split": "dev",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Retired employees work in Finance under Remote?",
+      "answer": "There are **303 retired employees** in the Finance department working under the Remote work mode.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 303,
+      "predicted": 303,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-130713-CWU2",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6462,
+      "tokens_out": 129,
+      "tokens_used": 6591,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "hr"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "judge unavailable: LLM HTTP 429",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_ed0fbc08be20",
+      "split": "dev",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for Data Analyst in IT?",
+      "answer": "The **average salary for a Data Analyst in IT** is **\u20b9800,118 INR** (based on **555 employees** from HR data, with an additional SQL-derived figure of **\u20b9800,118 INR** from a precise query).\n\n*(Sources: HR / SQL)*",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 800118.0576576577,
+      "predicted": 800118.0,
+      "agents": [
+        "hr",
+        "sql"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 22,
+      "request_id": "ORION-20260828-130716-013H",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "sql",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 38611,
+      "tokens_out": 677,
+      "tokens_used": 39288,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "hr"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_a34bc292dc56",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category MacBook?",
+      "answer": "The `sql_spec` tool is currently paused due to a circuit being open. However, based on the schema and the previous `product_search` result, the **MacBook category contains exactly 2000 rows** in the Apple product catalog.\n\nThus, the number of Apple catalog rows in the **MacBook** category is **2000**.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 25,
+      "request_id": "ORION-20260828-130726-XF90",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 40455,
+      "tokens_out": 744,
+      "tokens_used": 41199,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "finance",
+        "sql"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": false,
+        "failure_class": "F3",
+        "repair_hint": "The answer claims a numeric result without valid evidence or tool invocation. Abstain or request tool access.",
+        "hallucinated_numbers": [
+          "2000"
+        ]
+      }
+    },
+    {
+      "id": "t_fb4e80ca77c6",
+      "split": "dev",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Resigned employees work in IT under On-site?",
+      "answer": "There are **431 employees** who have resigned from the IT department and work in an **On-site** work mode.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 431,
+      "predicted": 431,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-130741-6ETS",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6887,
+      "tokens_out": 124,
+      "tokens_used": 7011,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "hr"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_931bede30877",
+      "split": "dev",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for HR Executive in HR?",
+      "answer": "Here\u2019s the consolidated answer for the user, incorporating the available data while clearly marking sources and omitting speculative numbers:\n\n---\n**Average Salary for HR Executives in the HR Department (India, INR):**\nThe **SQL query** (filtered by `Department=\"HR\"` and `Job_Title=\"Executive\"`) returned a precise average salary of **\u20b9549,298.59** (source: **SYNTH_CAL**).\n\n**Note on Global Context:**\nWhile a broader global mean of **\u20b9845,395** (source: **SYNTH_CAL**) exists, it is **not representative** of this specific role/department subset due to tool limitations in isolating the exact filter (`HR Executive` in `HR`). If this role exists, verify the exact job title spelling or refine filters (e.g., location).\n\n---\n**Key Actions for Clarity:**\n- **No valid HR slice** was found via the initial `describe_column` call (source: **SYNTH_CAL**).\n- The corrected **SQL** result (\u20b9549,298.59) is the only concrete data point for this role.",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 549298.5931849792,
+      "predicted": 549298.59,
+      "agents": [
+        "hr",
+        "sql"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 28,
+      "request_id": "ORION-20260828-130745-K2IN",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "sql",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 48150,
+      "tokens_out": 976,
+      "tokens_used": 49126,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "hr"
+      ],
+      "judge": {
+        "overall": 1,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "F3",
+        "repair_hint": "Verify if the SQL query correctly filtered for 'HR Executive' in the 'HR' department. The evidence does not confirm the existence of such a role.",
+        "hallucinated_numbers": [
+          "\u20b9549,298.59",
+          "\u20b9845,395"
+        ]
+      }
+    },
+    {
+      "id": "t_465469e01345",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2019 Q3?",
+      "answer": "Apple's **NetSales_Total for 2019 Q3** is **$90,146 million** (USD).\n\n*(Note: The earlier `date_at` attempt failed due to a misalignment in fiscal/calendar quarters, but the correct value was retrieved from the sample data for 2019 Q3 in the schema lookup.)*",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 53809,
+      "predicted": 90146,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 17,
+      "request_id": "ORION-20260828-130757-TZGP",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 36027,
+      "tokens_out": 503,
+      "tokens_used": 36530,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_c48630057a0a",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2023-05-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2023-05-01** was **303.334**.",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 303.334,
+      "predicted": 303.334,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-130807-QPW1",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7264,
+      "tokens_out": 159,
+      "tokens_used": 7423,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_aad35ee77515",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category MacBook?",
+      "answer": "The `products` table in the Apple catalog does not support the `COUNT` aggregation directly via `sql_spec`. However, the `product_search` query with `category=\"MacBook\"` returned a `match_count` of **2000**, indicating that the full table scan was triggered due to an incomplete filter.\n\nSince the `COUNT` aggregation is not supported, I will report the **match_count=2000** as the estimated number of rows in the **MacBook** category, but this is likely an artifact of the tool's behavior rather than an accurate count.\n\nFor precise results, the `sql_spec` tool would need to support `COUNT` properly, which it currently does not. Thus, I cannot provide an exact count of MacBook rows in the catalog.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 17,
+      "request_id": "ORION-20260828-130810-Q3ZX",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 30725,
+      "tokens_out": 644,
+      "tokens_used": 31369,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "finance",
+        "sql"
+      ],
+      "judge": {
+        "overall": 1,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "F3",
+        "repair_hint": "Avoid reporting tool artifacts as evidence; seek alternative methods for accurate counts.",
+        "hallucinated_numbers": [
+          "2000"
+        ]
+      }
+    },
+    {
+      "id": "t_b13ee4db1013",
+      "split": "dev",
+      "domain": "scheduler",
+      "family": "intra-entity",
+      "query": "How many events does John Doe have on 2024-05-15?",
+      "answer": "John Doe has **2 unique events** on **2024-05-15**, despite the initial 4000-match artifact due to duplicate entries in the calendar data. The conflicts tool confirmed that all duplicates were the same event (`\"Engineering Architecture Sync\"` at **10:00 AM**), so the actual count is **1 distinct event**.",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 1,
+      "predicted": 2,
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 17,
+      "request_id": "ORION-20260828-130819-ANCU",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 18209,
+      "tokens_out": 608,
+      "tokens_used": 18817,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "scheduler",
+        "sql"
+      ],
+      "judge": {
+        "overall": 1,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "F3",
+        "repair_hint": "Numeric claims (2, 4000, 1) lack evidence. Verify counts with raw data.",
+        "hallucinated_numbers": [
+          "2",
+          "4000",
+          "1"
+        ]
+      }
+    },
+    {
+      "id": "t_c7163d5acec9",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2022 Q3?",
+      "answer": "Apple's **NetSales_Total for 2022 Q3** was **82,959 million USD** (in millions).\n\n*(Note: The units are in millions of USD, as per the frozen table\u2019s numeric scale.)*",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 82959,
+      "predicted": 82959,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 13,
+      "request_id": "ORION-20260828-130828-G0S2",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 24539,
+      "tokens_out": 351,
+      "tokens_used": 24890,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_84846b17e6ae",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2006-12-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2006-12-01** was **203.1**.",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 203.1,
+      "predicted": 203.1,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-130835-M1DZ",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7258,
+      "tokens_out": 166,
+      "tokens_used": 7424,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_c2f1c9a82dcf",
+      "split": "dev",
+      "domain": "scheduler",
+      "family": "intra-entity",
+      "query": "How many events does John Doe have on 2024-05-15?",
+      "answer": "John Doe has **0 events** scheduled on **2024-05-15**.",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 1,
+      "predicted": 0,
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 15,
+      "request_id": "ORION-20260828-130838-XRU5",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 15813,
+      "tokens_out": 418,
+      "tokens_used": 16231,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "scheduler",
+        "sql"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "judge unavailable: LLM HTTP 429",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_c785e6abd529",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2019 Q4?",
+      "answer": "The error persists due to an incorrect tool call structure. Based on the schema, Apple's fiscal Q4 for 2019 corresponds to the row with `Year=2019` and `Quarter=4`. From the sample data, the `NetSales_Total` for **2019 Q4** is **$90,146 million**.\n\nHowever, since the tool call failed, I will use the **frozen table data** to confirm:\n\n**Apple's NetSales_Total for 2019 Q4 was $90,146 million.**\n\n*(Note: The tool call issue was due to incorrect syntax, but the correct value is derived from the sample data.)*",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 64040,
+      "predicted": 90146,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 17,
+      "request_id": "ORION-20260828-130846-3E5H",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 36241,
+      "tokens_out": 578,
+      "tokens_used": 36819,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "judge unavailable: LLM HTTP 429",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_7746f5fb572f",
+      "split": "dev",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for Operations Director in Operations?",
+      "answer": "The average **Salary_INR** for an **Operations Director** in the **Operations** department is **790,915 INR** (source: **HR** and **SQL**).",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 790914.9370629371,
+      "predicted": 790915.0,
+      "agents": [
+        "hr",
+        "sql"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 24,
+      "request_id": "ORION-20260828-130855-4XVF",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "sql",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 42015,
+      "tokens_out": 502,
+      "tokens_used": 42517,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "hr"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "judge unavailable: LLM HTTP 429",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_97cfaf8b2970",
+      "split": "dev",
+      "domain": "scheduler",
+      "family": "intra-entity",
+      "query": "How many events does John Doe have on 2024-05-15?",
+      "answer": "It appears there is an issue with the query due to the high number of matches (4000), which suggests a lack of specificity. To resolve this, I will explicitly check for events by filtering with an attendee or event_id to ensure accurate results.\n\nHowever, since no specific attendee or event_id is provided for John Doe on 2024-05-15, I cannot retrieve the exact count without additional details.\n\nWould you like to provide an attendee or event_id to refine the search? Alternatively, I can check for conflicts or other details if needed.",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 1,
+      "predicted": 4000,
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 15,
+      "request_id": "ORION-20260828-130901-DFAP",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 15818,
+      "tokens_out": 528,
+      "tokens_used": 16346,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "scheduler",
+        "sql"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "judge unavailable: LLM HTTP 429",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_accb0fc1898f",
+      "split": "dev",
+      "domain": "cross",
+      "family": "cross-source-illegal",
+      "query": "Compare MSFT 10-K revenue with MNC payroll in IT and give a single company total.",
+      "answer": "I abstain. MSFT cannot join ['MNC'] (illegal mix; abstain) This lake is entity-tagged; illegal pairs cannot be combined into one total.",
+      "oracle_ok": true,
+      "grader": "abstain",
+      "gold": "ABSTAIN",
+      "predicted": "I abstain. MSFT cannot join ['MNC'] (illegal mix; abstain) This lake is entity-tagged; illegal pairs cannot be combined into one total.",
+      "agents": [],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": null,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 0,
+      "request_id": "ORION-20260828-130908-0ROX",
+      "backtracks": 0,
+      "graph": {},
+      "cascade_radius": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tokens_used": 0,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "finance",
+        "hr",
+        "scheduler",
+        "sql"
+      ],
+      "judge": {
+        "overall": 0,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "judge unavailable: LLM HTTP 429",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_7c4ba9e97891",
+      "split": "dev",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for Accountant in Finance?",
+      "answer": "Here\u2019s the consolidated answer for the user based on the specialist results:\n\nThe **average Salary_INR for Accountants in Finance** is **\u20b9736,350** (source: **HR**), but this is based on a **single data point** (limited sample size of **1 employee**), which may not be fully representative. The **FINANCE** specialist confirmed that a broader or more precise calculation is not currently retrievable due to dataset filtering errors.\n\nFor a more accurate estimate, additional data or a larger dataset would be required. If you have access to raw HR records, manual filtering for `Department=\"Finance\"` and `Job_Title=\"Accountant\"` could help derive a more reliable mean.",
+      "oracle_ok": false,
+      "grader": "numeric_rel",
+      "gold": 653698.572740113,
+      "predicted": 736350.0,
+      "agents": [
+        "hr",
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 32,
+      "request_id": "ORION-20260828-130908-O1ZB",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 55872,
+      "tokens_out": 1199,
+      "tokens_used": 57071,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "hr"
+      ],
+      "judge": {
+        "overall": 1,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "F1",
+        "repair_hint": "Numeric claim (\u20b9736,350) lacks evidence in TRACE. Verify dataset filtering for Department='Finance' and Job_Title='Accountant'.",
+        "hallucinated_numbers": [
+          "\u20b9736,350",
+          "1 employee"
+        ]
+      }
+    },
+    {
+      "id": "t_bbb258119508",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2009-10-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2009-10-01** was **216.509**.",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 216.509,
+      "predicted": 216.509,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-130920-5ULA",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7264,
+      "tokens_out": 151,
+      "tokens_used": 7415,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_c7800d1501a4",
+      "split": "dev",
+      "domain": "scheduler",
+      "family": "intra-entity",
+      "query": "How many events does John Doe have on 2024-05-15?",
+      "answer": "It appears that the query without an explicit filter (such as `event_id` or `attendee`) is returning the maximum possible matches (4000), which suggests a lack of specificity. This is likely due to the absence of a unique identifier for the events.\n\nTo accurately determine the number of events for **John Doe on 2024-05-15**, I must rely on **deduplication by `event_id`** or filter by an attendee. Since no unique event IDs or attendees were provided, I cannot proceed further without additional context.\n\nWould you like me to:\n1. **Check for conflicts** (overlapping events) for John Doe on that date?\n2. **Search for specific attendees** associated with John Doe on that date?\n3. **Provide a different approach** to refine the query?",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 1,
+      "predicted": 4000,
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 15,
+      "request_id": "ORION-20260828-130923-46RV",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 15818,
+      "tokens_out": 580,
+      "tokens_used": 16398,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "scheduler",
+        "sql"
+      ],
+      "judge": {
+        "overall": 1,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "F6",
+        "repair_hint": "Provide a direct numeric answer or request clarification with a specific filter (e.g., event_id or attendee).",
+        "hallucinated_numbers": [
+          "4000"
+        ]
+      }
+    },
+    {
+      "id": "t_d0bd7ecf991e",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category Apple Watch?",
+      "answer": "The `products` table in the Apple catalog does not support aggregation functions like `COUNT` directly via `sql_spec`. Based on the earlier `product_search` result, the category **\"Apple Watch\"** contains **2000+ rows** (match_count=2000), indicating a full table scan without filtering. This suggests the count is effectively **2000+**, but the exact number cannot be retrieved due to schema limitations.\n\n**Final Answer:**\nThe Apple Watch category in the catalog contains **at least 2000 rows** (exact count unavailable).",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 17,
+      "request_id": "ORION-20260828-130932-MS83",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 30031,
+      "tokens_out": 467,
+      "tokens_used": 30498,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "finance",
+        "sql"
+      ],
+      "judge": {
+        "overall": 1,
+        "grounded": true,
+        "complete": false,
+        "safe": true,
+        "failure_class": "F3",
+        "repair_hint": "The worker correctly identifies schema limitations but overstates the evidence by claiming '2000+ rows' without direct numeric grounding in the EVIDENCE. Abstain or clarify uncertainty.",
+        "hallucinated_numbers": [
+          "2000",
+          "2000+"
+        ]
+      }
+    },
+    {
+      "id": "t_3072d192cee2",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2021 Q1?",
+      "answer": "The **Apple NetSales_Total for 2021 Q1** is **not available in the frozen `applfin` table** for either calendar Q1 (March 2021) or fiscal Q1 (likely October\u2013December 2020).\n\n### Key Observations:\n1. **Fiscal vs. Calendar Quarters**: Apple\u2019s fiscal Q1 (2021) corresponds to calendar Q4 (October\u2013December 2020), but the table does not contain a row for this period.\n2. **Data Gap**: The frozen table only includes **20 rows**, and none match the expected date/quarter for 2021 Q1.\n\n### Final Answer:\n**No valid `NetSales_Total` data exists for Apple in 2021 Q1** in the current dataset. If you need this value, check Apple\u2019s **SEC filings (10-K/10-Q)** for the relevant quarter or retrieve updated financial data.",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 123945,
+      "predicted": 2020,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 17,
+      "request_id": "ORION-20260828-130941-JHIA",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 35597,
+      "tokens_out": 776,
+      "tokens_used": 36373,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "No numeric claim to verify; abstention is appropriate.",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_2eed53ac255c",
+      "split": "dev",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Active employees work in Finance under On-site?",
+      "answer": "There are **428 Active employees** in the Finance department working under **On-site** mode.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 428,
+      "predicted": 428,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-130951-GU4B",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6710,
+      "tokens_out": 115,
+      "tokens_used": 6825,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "hr"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_2f4a61224394",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2020 Q4?",
+      "answer": "The issue appears to be a tool execution error rather than a data availability issue. Based on the schema, Apple's **NetSales_Total for 2020 Q4** is **$117,154 million** (as seen in the sample data for the fiscal year 2020, Q4).\n\nI will now create a skill to avoid this tool call issue in the future.",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 64698,
+      "predicted": 117154,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 17,
+      "request_id": "ORION-20260828-130954-M84D",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 36129,
+      "tokens_out": 516,
+      "tokens_used": 36645,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 1,
+        "grounded": false,
+        "complete": false,
+        "safe": true,
+        "failure_class": "F1",
+        "repair_hint": "Answer contains numeric claim without clear evidence in EVIDENCE. Verify source.",
+        "hallucinated_numbers": [
+          "$117,154 million"
+        ]
+      }
+    },
+    {
+      "id": "t_3c5f638f86a6",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2021 Q2?",
+      "answer": "The **Apple NetSales_Total for 2021 Q2** was **$89,584 million**.\n\n(Note: The value is in millions of USD, consistent with Apple\u2019s financial reporting format.)",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 89584,
+      "predicted": 89584,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 13,
+      "request_id": "ORION-20260828-131003-DR6L",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 24492,
+      "tokens_out": 317,
+      "tokens_used": 24809,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_08a457468c84",
+      "split": "dev",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2010-11-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2010-11-01** was **219.59**.",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 219.59,
+      "predicted": 219.59,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260828-131009-UV32",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7261,
+      "tokens_out": 166,
+      "tokens_used": 7427,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "sql",
+        "finance"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "",
+        "hallucinated_numbers": []
+      }
+    },
+    {
+      "id": "t_d48764d35fad",
+      "split": "dev",
+      "domain": "scheduler",
+      "family": "intra-entity",
+      "query": "How many events does John Doe have on 2024-05-15?",
+      "answer": "It appears there are **no confirmed events** for John Doe on **2024-05-15** in the calendar data. The initial broad queries returned 4000 matches due to an issue with filtering, but upon applying stricter constraints (e.g., `event_id`), the results confirmed no valid events exist for that date and organizer.\n\n**Final Answer:** John Doe has **0 events** on 2024-05-15.",
+      "oracle_ok": false,
+      "grader": "exact_int",
+      "gold": 1,
+      "predicted": 4000,
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 17,
+      "request_id": "ORION-20260828-131012-PPQL",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 17572,
+      "tokens_out": 553,
+      "tokens_used": 18125,
+      "heal": true,
+      "retry_only": true,
+      "inject": null,
+      "expected_agents": [
+        "scheduler",
+        "sql"
+      ],
+      "judge": {
+        "overall": 2,
+        "grounded": true,
+        "complete": true,
+        "safe": true,
+        "failure_class": "none",
+        "repair_hint": "None needed; answer is correct and grounded.",
+        "hallucinated_numbers": []
+      }
+    }
+  ]
+}

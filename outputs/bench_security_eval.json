@@ -1,0 +1,37 @@
+{
+  "total_attempts": 300,
+  "total_blocked": 300,
+  "overall_block_rate": 1.0,
+  "categories": {
+    "eval_exec": {
+      "attempts": 50,
+      "blocked": 50,
+      "block_rate": 1.0
+    },
+    "import_bypass": {
+      "attempts": 50,
+      "blocked": 50,
+      "block_rate": 1.0
+    },
+    "filesystem_access": {
+      "attempts": 50,
+      "blocked": 50,
+      "block_rate": 1.0
+    },
+    "subprocess_spawn": {
+      "attempts": 50,
+      "blocked": 50,
+      "block_rate": 1.0
+    },
+    "socket_network": {
+      "attempts": 50,
+      "blocked": 50,
+      "block_rate": 1.0
+    },
+    "dunder_traversal": {
+      "attempts": 50,
+      "blocked": 50,
+      "block_rate": 1.0
+    }
+  }
+}

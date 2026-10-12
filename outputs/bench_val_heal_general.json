@@ -1,0 +1,1650 @@
+{
+  "summary": {
+    "split": "val",
+    "n": 34,
+    "tsr": 1.0,
+    "tsr_ci95": [
+      0.8984820937803899,
+      1.0
+    ],
+    "route_acc": 0.47058823529411764,
+    "route_ci95": [
+      0.31451251633111366,
+      0.6326355957994516
+    ],
+    "tool_path_acc": 1.0,
+    "tool_path_ci95": [
+      0.889740999265246,
+      0.9999999999999999
+    ],
+    "evidence_acc": 0.8235294117647058,
+    "evidence_ci95": [
+      0.6648593225994784,
+      0.9165114439643031
+    ],
+    "abstention_f1": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "n_gold_abstain": 3
+    },
+    "seconds": 127.3020281791687,
+    "by_family": {
+      "intra-entity": {
+        "n": 30,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.8864829086095221,
+          1.0
+        ]
+      },
+      "cross-source-legal": {
+        "n": 1,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.20654329147389294,
+          1.0
+        ]
+      },
+      "unanswerable": {
+        "n": 2,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.34237195288961925,
+          1.0
+        ]
+      },
+      "cross-source-illegal": {
+        "n": 1,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.20654329147389294,
+          1.0
+        ]
+      }
+    },
+    "by_domain": {
+      "hr": {
+        "n": 11,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.7411599827511859,
+          1.0
+        ]
+      },
+      "finance": {
+        "n": 17,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.8156763396284354,
+          1.0
+        ]
+      },
+      "cross": {
+        "n": 2,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.34237195288961925,
+          1.0
+        ]
+      },
+      "scheduler": {
+        "n": 4,
+        "tsr": 1.0,
+        "tsr_ci95": [
+          0.5100999795960008,
+          1.0
+        ]
+      }
+    },
+    "heal": true,
+    "retry_only": false,
+    "inject": null,
+    "tokens_in": 343375,
+    "tokens_out": 7193,
+    "tokens_per_ok": 10310.823529411764,
+    "backtracks": 0,
+    "cascade_radius_max": 0,
+    "rsr": null,
+    "rsr_ci95": null,
+    "fda": null,
+    "fda_ci95": null,
+    "judge": false,
+    "cost_tokens": 350568,
+    "out": "D:\\orion\\outputs\\bench_val_heal_general.json"
+  },
+  "rows": [
+    {
+      "id": "t_13bae594f57e",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Active employees work in Finance under Remote?",
+      "answer": "There are **286 active employees** in the Finance department working under the Remote work mode.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 286,
+      "predicted": 286,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121003-4SM8",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6910,
+      "tokens_out": 121,
+      "tokens_used": 7031,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_a9193b7f2cef",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2009-04-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2009-04-01** was **212.709**.\n\n*(Source: FRED frozen table, retrieved via `date_at`.)*",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 212.709,
+      "predicted": 212.709,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121008-T3J2",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7884,
+      "tokens_out": 175,
+      "tokens_used": 8059,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_12b84157f219",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for Content Strategist in Marketing?",
+      "answer": "The average **Salary_INR** for a **Content Strategist** in **Marketing** is **787,827 INR** (sourced from **HR** and **SQL**).",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 787826.8731182796,
+      "predicted": 787827.0,
+      "agents": [
+        "hr",
+        "sql"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 18,
+      "request_id": "ORION-20260831-121011-EIPH",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "sql",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 27356,
+      "tokens_out": 459,
+      "tokens_used": 27815,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_155dbdaf180b",
+      "split": "val",
+      "domain": "cross",
+      "family": "cross-source-legal",
+      "query": "Report Apple NetSales_Total for 2022 Q2 and US CPI on 2019-08-01.",
+      "answer": "Here\u2019s the combined answer for the user, preserving all original numbers and sources:\n\n---\n**Apple\u2019s NetSales_Total for 2022 Q2** was **$97,278 million** (MNC/AAPL).\n**US CPI on August 1, 2019**, was **256.036** (index base 1982\u201384=100, source: FRED).\n\n*(Note: The original chart specifications for these metrics were intended as follows: a bar chart for Apple\u2019s Q2 2022 sales and a scatter plot for the single CPI data point on 2019-08-01, though rendering failed due to tool limitations.)*",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 97278.0,
+      "predicted": 97278.0,
+      "agents": [
+        "finance",
+        "chart"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 25,
+      "request_id": "ORION-20260831-121019-8QU7",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "chart",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 38157,
+      "tokens_out": 1755,
+      "tokens_used": 39912,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_5dd2134431ae",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2019 Q2?",
+      "answer": "Apple's **NetSales_Total** in **2019 Q2** was **58,015 million USD** (in Apple's reported units).\n\n*(Note: The units are consistent with Apple\u2019s financial reporting, where figures are typically in millions or billions of USD.)*",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 58015,
+      "predicted": 58015,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121037-HB3J",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8300,
+      "tokens_out": 181,
+      "tokens_used": 8481,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_a15a5fe545e3",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2020 Q1?",
+      "answer": "Apple's **NetSales_Total** in **2020 Q1** was **111,439 million USD** (in Apple's reported units).\n\n*(Note: This is the total net sales figure, combining products and services.)*",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 111439,
+      "predicted": 111439,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121040-NGKS",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8303,
+      "tokens_out": 160,
+      "tokens_used": 8463,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_a2b17c8cd26d",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for Product Developer in R&D?",
+      "answer": "The average salary for a **Product Developer** in **R&D** is **\u20b9803,952 INR** (based on **HR** data).",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 803951.9976442874,
+      "predicted": 803952.0,
+      "agents": [
+        "hr",
+        "sql"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 16,
+      "request_id": "ORION-20260831-121045-SO0B",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "sql",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 22896,
+      "tokens_out": 322,
+      "tokens_used": 23218,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_9d980775fe2a",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2020-09-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2020-09-01** was **259.997**.\n\n*(Source: FRED frozen table, retrieved via `date_at`.)*",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 259.997,
+      "predicted": 259.997,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121050-ZHMY",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7884,
+      "tokens_out": 175,
+      "tokens_used": 8059,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_373f416239e7",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Retired employees work in R&D under On-site?",
+      "answer": "There are **440 retired employees** working in **R&D** under the **On-site** work mode.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 440,
+      "predicted": 440,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121054-50NL",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6921,
+      "tokens_out": 113,
+      "tokens_used": 7034,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_34dab3b8e75d",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for CTO in IT?",
+      "answer": "Here\u2019s the consolidated answer for the user:\n\nThe average **Salary_INR** for a **CTO** in the **IT** sector is **789,301 INR** (sourced from **HR** and **SQL** data).",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 789301.0,
+      "predicted": 789301.0,
+      "agents": [
+        "hr",
+        "sql"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 16,
+      "request_id": "ORION-20260831-121056-6HZN",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "sql",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 22856,
+      "tokens_out": 331,
+      "tokens_used": 23187,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_f804d03b743e",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category Apple Watch?",
+      "answer": "The Apple catalog contains **2,000 rows** in the **Apple Watch** category.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121103-T4OG",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8218,
+      "tokens_out": 103,
+      "tokens_used": 8321,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_44a1f006f487",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2012-01-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2012-01-01** was **227.842**.\n\n*(Source: FRED frozen table, retrieved via `date_at`.)*",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 227.842,
+      "predicted": 227.842,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121107-8WST",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7884,
+      "tokens_out": 172,
+      "tokens_used": 8056,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_9f1f0f24c306",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category iMac?",
+      "answer": "The Apple catalog contains **2,000 rows** in the **iMac** category.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121110-868I",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8251,
+      "tokens_out": 116,
+      "tokens_used": 8367,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_2090aebd732c",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Active employees work in Operations under On-site?",
+      "answer": "There are **414 Active employees** working in **Operations** under **On-site** work mode.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 414,
+      "predicted": 414,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121113-PTWY",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6895,
+      "tokens_out": 104,
+      "tokens_used": 6999,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_eae5579c81ac",
+      "split": "val",
+      "domain": "scheduler",
+      "family": "intra-entity",
+      "query": "How many events does John Doe have on 2024-05-15?",
+      "answer": "John Doe has **1 event** scheduled on **2024-05-15**. Would you like details about that event?",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 1,
+      "predicted": 1,
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121115-4JAD",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 4656,
+      "tokens_out": 151,
+      "tokens_used": 4807,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_4bff73d99908",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2018 Q1?",
+      "answer": "Apple's **NetSales_Total** in **2018 Q1** was **$84,310 million** (in billions, ~$84.31B).\n\n*(Source: Frozen Apple financial table, artifact `e5ab4219aaea`.)*",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 84310,
+      "predicted": 84310,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121118-7SR7",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8297,
+      "tokens_out": 174,
+      "tokens_used": 8471,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_37082019eb7d",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for Product Developer in R&D?",
+      "answer": "The average **Salary_INR** for a **Product Developer** in **R&D** is **803,952 INR** (sourced from **HR** and **SQL**).",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 803951.9976442874,
+      "predicted": 803952.0,
+      "agents": [
+        "hr",
+        "sql"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 16,
+      "request_id": "ORION-20260831-121121-ZKJJ",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "sql",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 22905,
+      "tokens_out": 337,
+      "tokens_used": 23242,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_29f3e5e6875e",
+      "split": "val",
+      "domain": "scheduler",
+      "family": "intra-entity",
+      "query": "How many events does John Doe have on 2024-05-15?",
+      "answer": "John Doe has **1 event** scheduled on **2024-05-15**.\n\nWould you like details about the event?",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 1,
+      "predicted": 1,
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121127-B2NX",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 4656,
+      "tokens_out": 148,
+      "tokens_used": 4804,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_7fa698dac704",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category AirPods?",
+      "answer": "The Apple catalog contains **2,000 rows** in the **AirPods** category.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121130-LDU6",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8263,
+      "tokens_out": 109,
+      "tokens_used": 8372,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_8f439b97849e",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2003-08-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2003-08-01** was **184.5**.",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 184.5,
+      "predicted": 184.5,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121133-PH74",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7878,
+      "tokens_out": 149,
+      "tokens_used": 8027,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_72640d37e4a3",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Active employees work in R&D under On-site?",
+      "answer": "There are **434 Active employees** working in **R&D under On-site**.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 434,
+      "predicted": 434,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121135-1MN1",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6899,
+      "tokens_out": 115,
+      "tokens_used": 7014,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_1e00dcda71e1",
+      "split": "val",
+      "domain": "finance",
+      "family": "unanswerable",
+      "query": "What was Apple revenue in year 1800?",
+      "answer": "Apple (AAPL) did not exist in the year 1800. The company was founded in 1976. Therefore, Apple had no revenue in that year.",
+      "oracle_ok": true,
+      "grader": "abstain",
+      "gold": "ABSTAIN",
+      "predicted": "Apple (AAPL) did not exist in the year 1800. The company was founded in 1976. Therefore, Apple had no revenue in that year.",
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": null,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 5,
+      "request_id": "ORION-20260831-121138-DTXA",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 3868,
+      "tokens_out": 123,
+      "tokens_used": 3991,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_b74aca965821",
+      "split": "val",
+      "domain": "scheduler",
+      "family": "intra-entity",
+      "query": "How many events does John Doe have on 2024-05-15?",
+      "answer": "John Doe has **1 event** scheduled on **2024-05-15**.\n\nWould you like details about the event?",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 1,
+      "predicted": 1,
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121140-75HJ",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 4656,
+      "tokens_out": 148,
+      "tokens_used": 4804,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_1a74994178aa",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "What is the average Salary_INR for Research Scientist in R&D?",
+      "answer": "The average **Salary_INR** for a **Research Scientist** in **R&D** is **807,119.54 INR** (source: **HR** and **SQL**).",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 807119.5447098976,
+      "predicted": 807119.54,
+      "agents": [
+        "hr",
+        "sql"
+      ],
+      "expected_agent": "sql",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 12,
+      "request_id": "ORION-20260831-121142-VFNP",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          },
+          {
+            "id": "n2",
+            "agent": "sql",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 14953,
+      "tokens_out": 254,
+      "tokens_used": 15207,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_f65ed18be232",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Resigned employees work in IT under Remote?",
+      "answer": "There are **283 Resigned employees** in the IT department working under the Remote work mode.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 283,
+      "predicted": 283,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121146-90AS",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6913,
+      "tokens_out": 114,
+      "tokens_used": 7027,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_dff51d0c2192",
+      "split": "val",
+      "domain": "hr",
+      "family": "intra-entity",
+      "query": "How many Active employees work in R&D under On-site?",
+      "answer": "There are **434 Active employees** working in **R&D** under **On-site** work mode.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 434,
+      "predicted": 434,
+      "agents": [
+        "hr"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121148-726U",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "hr",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 6899,
+      "tokens_out": 124,
+      "tokens_used": 7023,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_f4c53b12f50d",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2020-05-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2020-05-01** was **255.802**.\n\n*(Source: FRED frozen table, exact lookup.)*",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 255.802,
+      "predicted": 255.802,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121151-AOZU",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7884,
+      "tokens_out": 174,
+      "tokens_used": 8058,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_771516ccba9f",
+      "split": "val",
+      "domain": "scheduler",
+      "family": "unanswerable",
+      "query": "Who attends the board meeting on 1900-01-01?",
+      "answer": "No board meeting exists on 1900-01-01 in the calendar data. Would you like to check for a different date or meeting?",
+      "oracle_ok": true,
+      "grader": "abstain",
+      "gold": "ABSTAIN",
+      "predicted": "No board meeting exists on 1900-01-01 in the calendar data. Would you like to check for a different date or meeting?",
+      "agents": [
+        "scheduler"
+      ],
+      "expected_agent": "scheduler",
+      "route_ok": true,
+      "tool_path_ok": null,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121154-SEH1",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "scheduler",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 5077,
+      "tokens_out": 130,
+      "tokens_used": 5207,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_5a75215d56ce",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category iPhone?",
+      "answer": "The Apple catalog contains **2,000 rows** in the **iPhone** category.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121156-1WFH",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8246,
+      "tokens_out": 107,
+      "tokens_used": 8353,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_6385c19c9af2",
+      "split": "val",
+      "domain": "cross",
+      "family": "cross-source-illegal",
+      "query": "Compare MSFT 10-K revenue with MNC payroll in IT and give a single company total.",
+      "answer": "I abstain. MSFT cannot join ['MNC'] (illegal mix; abstain) This lake is entity-tagged; illegal pairs cannot be combined into one total.",
+      "oracle_ok": true,
+      "grader": "abstain",
+      "gold": "ABSTAIN",
+      "predicted": "I abstain. MSFT cannot join ['MNC'] (illegal mix; abstain) This lake is entity-tagged; illegal pairs cannot be combined into one total.",
+      "agents": [],
+      "expected_agent": "finance",
+      "route_ok": false,
+      "tool_path_ok": null,
+      "evidence_ok": false,
+      "success": true,
+      "n_spans": 0,
+      "request_id": "ORION-20260831-121159-NB5X",
+      "backtracks": 0,
+      "graph": {},
+      "cascade_radius": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tokens_used": 0,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_77b23af1340a",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was US CPI (CPIAUCSL) on 2003-10-01?",
+      "answer": "The US Consumer Price Index (CPIAUCSL) on **2003-10-01** was **184.9**.",
+      "oracle_ok": true,
+      "grader": "numeric_rel",
+      "gold": 184.9,
+      "predicted": 184.9,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121159-4FJM",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 7878,
+      "tokens_out": 160,
+      "tokens_used": 8038,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_89daf5f35fcb",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category Apple Watch?",
+      "answer": "The Apple catalog contains **2,000 rows** in the **Apple Watch** category.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121202-9PFI",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8216,
+      "tokens_out": 106,
+      "tokens_used": 8322,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_e417a9538405",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "What was Apple NetSales_Total in 2023 Q4?",
+      "answer": "Apple's **NetSales_Total** in **2023 Q4** was **$89,498 million** (in billions: **$89.5B**).\n\n*(Source: Apple\u2019s ApplFin frozen table, artifact [361e20e12ede](compacted).)*",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 89498,
+      "predicted": 89498,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "sql",
+      "route_ok": false,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121205-XSAG",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8298,
+      "tokens_out": 177,
+      "tokens_used": 8475,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    },
+    {
+      "id": "t_a2136c426af6",
+      "split": "val",
+      "domain": "finance",
+      "family": "intra-entity",
+      "query": "How many Apple catalog rows are in category Apple Watch?",
+      "answer": "The Apple catalog contains **2,000 rows** in the **Apple Watch** category.",
+      "oracle_ok": true,
+      "grader": "exact_int",
+      "gold": 2000,
+      "predicted": 2000,
+      "agents": [
+        "finance"
+      ],
+      "expected_agent": "finance",
+      "route_ok": true,
+      "tool_path_ok": true,
+      "evidence_ok": true,
+      "success": true,
+      "n_spans": 7,
+      "request_id": "ORION-20260831-121208-149M",
+      "backtracks": 0,
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "agent": "finance",
+            "depends_on": [],
+            "status": "completed",
+            "rewinds": 0
+          }
+        ],
+        "edges": [],
+        "backtracks": 0,
+        "cascade_radius": 0
+      },
+      "cascade_radius": 0,
+      "tokens_in": 8218,
+      "tokens_out": 106,
+      "tokens_used": 8324,
+      "heal": true,
+      "retry_only": false,
+      "inject": null
+    }
+  ]
+}

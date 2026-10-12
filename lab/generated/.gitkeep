@@ -1,0 +1,1 @@
+# Keep generated workers out of git by default; the synthesizer writes here at runtime.

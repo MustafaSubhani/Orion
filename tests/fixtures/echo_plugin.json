@@ -1,0 +1,12 @@
+{
+  "id": "echo_plugin",
+  "verb": "echo_plugin",
+  "resource_type": "plugin",
+  "description": "Contract-test echo. Tenant plug-in with zero worker file edits.",
+  "handler": "echo",
+  "schema": {
+    "type": "object",
+    "properties": {"text": {"type": "string"}},
+    "required": ["text"]
+  }
+}

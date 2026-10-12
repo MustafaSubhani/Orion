@@ -1,0 +1,57 @@
+# Data lakes and databases (user instruction: do not push data)
+data/
+chroma_db/
+*.db
+*.sqlite3
+orion_auth.db
+
+# Secrets, credentials & private keys
+.env
+*.env
+*.key
+Open Router Key.txt
+
+# Papers, drafts, and LaTeX builds (user instruction: do not add paper)
+paper/
+
+# Reports, documents, and PDFs (user instruction: do not add reports)
+*.docx
+*.pdf
+
+# Text files, prompt dumps, and build logs (user instruction: do not add txt files)
+*.txt
+!setup/requirements.txt
+
+# External / Unrelated workspace folders
+Driving care/
+
+# Live Knowledge Base uploads & temp files
+kb/files/
+kb/tables/
+kb/chunks/
+kb/catalog.json
+kb/*.json.tmp
+
+# Python build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.exe
+bin/
+.venv/
+venv/
+
+# Outputs, traces, and execution graphs
+outputs/traces/
+outputs/graphs/
+outputs/exports/
+outputs/skills/
+outputs/audit_log.jsonl
+*.log
+
+# Web build artifacts
+web/node_modules/
+web/.next/
+web/out/
+node_modules/
+.next/

@@ -1,0 +1,7 @@
+{
+  "sample_size": 30,
+  "agreed_count": 30,
+  "agreement_rate": 1.0,
+  "cohens_kappa": 1.0,
+  "note": "Calibration ready for paper Methodology Section 5.4."
+}
