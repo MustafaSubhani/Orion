@@ -769,7 +769,9 @@ class SkillStoreTests(unittest.TestCase):
             self.assertIn("Performance_Rating", got.procedure)
             picked = store.select("average performance rating by department", agent_id="hr", entities=["MNC"], k=1)
             self.assertEqual(picked[0].slug, "hr-sql-f4")
-            self.assertGreaterEqual(store.get("hr-sql-f4").hits, 1)
+            self.assertEqual(store.get("hr-sql-f4").hits, 0)  # selection is a memory-only count ...
+            store.flush_hits()
+            self.assertGreaterEqual(store.get("hr-sql-f4").hits, 1)  # ... persisted in a batch
 
     def test_rejects_path_escape_and_banned(self) -> None:
         from harness.skills import SkillStore

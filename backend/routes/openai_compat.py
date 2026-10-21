@@ -102,11 +102,12 @@ def models(_: Identity = Depends(current_identity)) -> dict:
 def chat_completions(req: OAIChatRequest, identity: Identity = Depends(current_identity)):
     query = service.check_input(last_user_text(req.messages))
     query, pin = service.parse_pin(query, None, None)
+    thread_id = (req.model_extra or {}).get("thread_id")
     cid = "chatcmpl-" + uuid.uuid4().hex[:24]
     created = int(time.time())
 
     if not req.stream:
-        result = service.run(identity, query, pin_agent=pin)
+        result = service.run(identity, query, pin_agent=pin, thread_id=thread_id)
         return JSONResponse(
             {
                 "id": cid,
@@ -123,6 +124,7 @@ def chat_completions(req: OAIChatRequest, identity: Identity = Depends(current_i
                 "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": result.tokens_used},
                 "orion": {
                     "request_id": result.request_id,
+                    "thread_id": result.thread_id,
                     "agents": result.agents_used,
                     "success": result.success,
                     "tasks": result.tasks,
@@ -133,7 +135,7 @@ def chat_completions(req: OAIChatRequest, identity: Identity = Depends(current_i
     def generate() -> Iterator[str]:
         yield _line(_chunk(cid, created, {"role": "assistant"}))
         try:
-            for update in service.stream(identity, query, pin_agent=pin):
+            for update in service.stream(identity, query, pin_agent=pin, thread_id=thread_id):
                 kind = update.get("type")
                 if kind == "error":
                     yield _line(_chunk(cid, created, {"content": str(update.get("message", "Request failed"))}))
@@ -144,6 +146,7 @@ def chat_completions(req: OAIChatRequest, identity: Identity = Depends(current_i
                         yield _line(_chunk(cid, created, {"content": piece}))
                     meta = {
                         "request_id": update.get("request_id", ""),
+                        "thread_id": update.get("thread_id"),
                         "agents": update.get("agents_used", []),
                         "success": update.get("success", True),
                         "tasks": update.get("tasks", []),

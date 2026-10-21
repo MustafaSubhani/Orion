@@ -6,16 +6,19 @@ can never widen access. Everything here runs in product mode (`kb_enabled=True`)
 
 from __future__ import annotations
 
+import threading
 from typing import Iterator, Optional
 
 from backend.deps import Identity
 from backend.errors import ApiError
-from harness import guard
+from harness import guard, summarizer, threads
 from harness.agent_registry import get_registry
 from harness.permissions import preprocess
 from harness.planner import OrchestrationResult, coordinate_stream
+from harness.settings_store import effective
 
 ROUTABLE = {"active", "deployed"}
+NEW_THREAD = "new"
 
 
 def parse_pin(message: str, requested: Optional[str], role: Optional[str]) -> tuple[str, Optional[str]]:
@@ -51,15 +54,46 @@ def check_input(message: str) -> str:
     return pre.clean_text
 
 
+def prepare_thread(identity: Identity, thread_id: Optional[str], message: str) -> tuple[Optional[str], str]:
+    """Resolve the thread for this turn. Returns `(thread_id, history_text)`.
+
+    `thread_id="new"` starts a thread titled after the message. Unknown or foreign threads are 404.
+    With `memory.enabled` off the id is ignored and the turn is stateless.
+    """
+    if not thread_id or not effective("memory.enabled"):
+        return None, ""
+    if thread_id == NEW_THREAD:
+        created = threads.create(tenant=identity.tenant, user=identity.username, title=message)
+        return created["id"], ""
+    thread = threads.get(thread_id, identity.tenant, identity.username)
+    if thread is None:
+        raise ApiError(404, "not_found", "Unknown thread")
+    return thread["id"], threads.history_text(thread)
+
+
+def record_turn(identity: Identity, thread_id: str, user_text: str, answer: str, request_id: str) -> None:
+    """Persist one exchange, then fold old turns into the rolling summary in the background."""
+    threads.append(thread_id, "user", user_text, request_id)
+    threads.append(thread_id, "assistant", answer, request_id)
+    threading.Thread(
+        target=summarizer.fold_thread,
+        args=(thread_id, identity.tenant, identity.username),
+        name="orion-thread-fold",
+        daemon=True,
+    ).start()
+
+
 def stream(
     identity: Identity,
     message: str,
     *,
     allowed_agents: Optional[list[str]] = None,
     pin_agent: Optional[str] = None,
+    thread_id: Optional[str] = None,
 ) -> Iterator[dict]:
-    """Yield planner events for one live chat turn."""
-    yield from coordinate_stream(
+    """Yield planner events for one live chat turn. The final event carries `thread_id` when one is used."""
+    active_thread, history = prepare_thread(identity, thread_id, message)
+    for update in coordinate_stream(
         message,
         allowed_agents or None,
         user=identity.username,
@@ -67,7 +101,14 @@ def stream(
         pin_agent=pin_agent,
         kb_enabled=True,
         tenant=identity.tenant,
-    )
+        history=history,
+    ):
+        if update.get("type") == "final" and active_thread:
+            record_turn(identity, active_thread, message, str(update.get("response", "")), str(update.get("request_id", "")))
+            update = {**update, "thread_id": active_thread}
+        elif update.get("type") == "init" and active_thread:
+            update = {**update, "thread_id": active_thread}
+        yield update
 
 
 def run(
@@ -76,9 +117,10 @@ def run(
     *,
     allowed_agents: Optional[list[str]] = None,
     pin_agent: Optional[str] = None,
+    thread_id: Optional[str] = None,
 ) -> OrchestrationResult:
     result = OrchestrationResult()
-    for update in stream(identity, message, allowed_agents=allowed_agents, pin_agent=pin_agent):
+    for update in stream(identity, message, allowed_agents=allowed_agents, pin_agent=pin_agent, thread_id=thread_id):
         kind = update.get("type")
         if kind == "final":
             result.final_response = update["response"]
@@ -89,6 +131,7 @@ def run(
             result.graph = update.get("graph") or {}
             result.backtracks = int(update.get("backtracks") or 0)
             result.tokens_used = int(update.get("tokens_used") or 0)
+            result.thread_id = update.get("thread_id")
         elif kind == "error":
             result.final_response = update.get("message", "error")
             result.success = False

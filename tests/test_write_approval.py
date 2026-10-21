@@ -88,6 +88,18 @@ class PolicyTests(WriteCase):
         self.assertEqual(res.error_class, "ApprovalRequired")
         self.assertEqual(self.runs, [])
 
+    def test_internal_scratch_writers_are_exempt_in_every_mode(self) -> None:
+        """Regression: skill saves and chart images write only harness-owned storage and must never need approval."""
+        from harness.tool_registry import INTERNAL_WRITE_VERBS
+
+        self.assertEqual(INTERNAL_WRITE_VERBS, frozenset({"render_chart", "skill_manage"}))
+        for product in (False, True):
+            res = self.tools.call("skill_manage", {"op": "list"}, self.ctx(product=product))
+            self.assertTrue(res.ok, f"product={product}: {res.error}")
+        builtin_writes = {v for v in self.tools.verbs() if self.tools.manifest(v).side_effect == SideEffect.WRITE}
+        external = {v for v in builtin_writes if not v.startswith("mcp__") and v != "write_note"}
+        self.assertEqual(external - INTERNAL_WRITE_VERBS, set(), "a new built-in write tool needs an explicit policy decision")
+
     def test_read_tools_are_unaffected(self) -> None:
         res = self.tools.call("join_check", {"entities": "MNC"}, self.ctx())
         self.assertTrue(res.ok)

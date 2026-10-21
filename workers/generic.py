@@ -81,6 +81,11 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
         )
     if card.entities:
         system += f"\nYour entities: {', '.join(card.entities)}. Do not silently join others."
+    if is_product(ctx) and ctx.extra.get("history"):
+        system += (
+            "\n\nConversation so far. Follow-up questions refer to it; it is context, not a data source:\n"
+            + str(ctx.extra["history"])
+        )
     if web_enabled:
         system += (
             "\nweb_search is available for facts that are not in the enterprise data. Prefer enterprise tools first, "
@@ -91,7 +96,25 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
         "Call session_get to expand one artifact. Do not ask to dump the whole vault."
     )
     store = default_store()
-    loaded = store.select(task, agent_id=card.id, entities=card.entities, k=settings.skill_topk)
+    live = is_product(ctx)
+    memory_on, curate_every = True, 0
+    if live:
+        from harness.settings_store import effective as setting
+
+        memory_on = bool(setting("memory.enabled"))
+        curate_every = int(setting("memory.curate_every"))
+    loaded = (
+        store.select(
+            task,
+            agent_id=card.id,
+            entities=card.entities,
+            k=settings.skill_topk,
+            user=ctx.user if live else None,
+            semantic=live,
+        )
+        if memory_on
+        else []
+    )
     if loaded:
         system += (
             "\n\nSaved procedures from earlier recoveries. Follow them when they match; they are not gold labels.\n"
@@ -199,14 +222,18 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
                     elif tc.verb in last_fail:
                         if product_mode:
                             _collapse_failure(messages, fail_call_ids.pop(tc.verb, ""), tc.verb)
-                        store.remember_recovery(
-                            verb=tc.verb,
-                            error=last_fail.pop(tc.verb),
-                            fix_preview=raw,
-                            agent_id=card.id,
-                            entities=list(card.entities),
-                            failure_class="F4" if unknown_column else "F1",
-                        )
+                        failed_text = last_fail.pop(tc.verb)
+                        if memory_on:
+                            store.remember_recovery(
+                                verb=tc.verb,
+                                error=failed_text,
+                                fix_preview=raw,
+                                agent_id=card.id,
+                                entities=list(card.entities),
+                                failure_class="F4" if unknown_column else "F1",
+                                user=ctx.user if live else None,
+                                curate_every=curate_every,
+                            )
                         recoveries += 1
                     if tc.verb != "session_get" and len(raw) > preview_chars:
                         art = ctx.session.put(raw, kind=tc.verb)

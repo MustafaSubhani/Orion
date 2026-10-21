@@ -8,14 +8,18 @@ and archives unused files so the prompt does not fill with stale procedures.
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import re
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from harness.config import SKILLS_DIR, ensure_dirs
+from harness.fsutil import atomic_write, file_lock, read_text_retry
 ARCHIVE_DIR = SKILLS_DIR / "_archive"
 _SLUG = re.compile(r"[^a-z0-9]+")
 _BANNED = ("bench/", "MISTRAL_API_KEY", "eval(", "subprocess", "__import__", "../")
@@ -36,6 +40,18 @@ class Skill:
     hits: int = 0
     created_at: str = ""
     updated_at: str = ""
+    scope: str = "global"  # global | user:<name> | agent:<id>
+
+    def visible_to(self, user: Optional[str], agent_id: str = "") -> bool:
+        """Who may be shown this skill. Unscoped (global) skills are visible to everyone."""
+        if self.scope in {"", "global"}:
+            return True
+        kind, _, who = self.scope.partition(":")
+        if kind == "user":
+            return bool(user) and who == user
+        if kind == "agent":
+            return bool(agent_id) and who == agent_id
+        return False
 
     @property
     def slug(self) -> str:
@@ -53,6 +69,7 @@ class Skill:
             f"entities: {entities}\n"
             f"verbs: {verbs}\n"
             f"failure_class: {self.failure_class}\n"
+            f"scope: {self.scope}\n"
             f"hits: {self.hits}\n"
             f"created_at: {self.created_at}\n"
             f"updated_at: {self.updated_at}\n"
@@ -120,6 +137,7 @@ def skill_from_markdown(text: str) -> Skill:
         hits=int(meta.get("hits") or 0),
         created_at=meta.get("created_at") or "",
         updated_at=meta.get("updated_at") or "",
+        scope=meta.get("scope") or "global",
     )
 
 
@@ -145,22 +163,31 @@ def validate_skill_text(*parts: str) -> Optional[str]:
 
 
 class SkillStore:
-    def __init__(self, root: Path | None = None) -> None:
+    FLUSH_EVERY = 10
+    FLUSH_SECONDS = 30.0
+
+    def __init__(self, root: Path | None = None, *, embedder: Optional[Callable[[list[str]], list[list[float]]]] = None) -> None:
         self.root = root or SKILLS_DIR
         self.archive_root = self.root / "_archive"
         self.root.mkdir(parents=True, exist_ok=True)
         self.archive_root.mkdir(parents=True, exist_ok=True)
+        self._embedder = embedder  # None means the shared sentence-transformer, loaded lazily
+        self._embedding_cache: dict[tuple[str, str], list[float]] = {}
+        self._pending_hits: dict[str, int] = {}
+        self._hits_lock = threading.Lock()
+        self._flush_lock = threading.Lock()  # serialises read-modify-write of hit counts
+        self._last_flush = time.monotonic()
+        self._saves_since_curate = 0
+        self._curating = threading.Lock()
+        atexit.register(self.flush_hits)
 
     def path_for(self, name: str) -> Path:
         slug = slugify(name)
-        if not slug or slug.startswith(".") or slug == "_archive":
+        if not slug or slug.startswith(".") or slug == "_archive" or "/" in slug or "\\" in slug:
             raise ValueError("invalid skill name")
-        path = (self.root / slug / "SKILL.md").resolve()
-        try:
-            path.relative_to(self.root.resolve())
-        except ValueError as exc:
-            raise ValueError("skill path escaped the store") from exc
-        return path
+        # `slugify` only emits [a-z0-9-], so the slug cannot traverse. The child is deliberately not
+        # `.resolve()`d: on Windows a resolved missing path can differ from the resolved root (8.3 names).
+        return self.root.resolve() / slug / "SKILL.md"
 
     def list(self, query: str = "") -> list[Skill]:
         out: list[Skill] = []
@@ -171,7 +198,7 @@ class SkillStore:
             if "_archive" in skill_md.parts:
                 continue
             try:
-                skill = skill_from_markdown(skill_md.read_text(encoding="utf-8"))
+                skill = skill_from_markdown(read_text_retry(skill_md))
             except OSError:
                 continue
             blob = f"{skill.name} {skill.description}".lower()
@@ -184,7 +211,7 @@ class SkillStore:
         path = self.path_for(name)
         if not path.exists():
             return None
-        return skill_from_markdown(path.read_text(encoding="utf-8"))
+        return skill_from_markdown(read_text_retry(path))
 
     def save(self, skill: Skill) -> Skill:
         err = validate_skill_text(skill.name, skill.description, skill.procedure)
@@ -194,8 +221,9 @@ class SkillStore:
             skill.created_at = _now()
         skill.updated_at = _now()
         path = self.path_for(skill.name)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(skill.to_markdown(), encoding="utf-8")
+        with file_lock(path):
+            atomic_write(path, skill.to_markdown())
+        self._saves_since_curate += 1
         return skill
 
     def create(
@@ -208,6 +236,7 @@ class SkillStore:
         entities: list[str] | None = None,
         verbs: list[str] | None = None,
         failure_class: str = "",
+        scope: str = "global",
     ) -> Skill:
         existing = self.get(name)
         if existing:
@@ -231,15 +260,39 @@ class SkillStore:
                 entities=list(entities or []),
                 verbs=list(verbs or []),
                 failure_class=failure_class,
+                scope=scope,
             )
         )
 
     def touch(self, name: str) -> None:
-        skill = self.get(name)
-        if skill is None:
-            return
-        skill.hits += 1
-        self.save(skill)
+        """Count a use in memory. Disk writes are batched by `flush_hits`, not done per selection."""
+        with self._hits_lock:
+            self._pending_hits[slugify(name)] = self._pending_hits.get(slugify(name), 0) + 1
+            due = (
+                sum(self._pending_hits.values()) >= self.FLUSH_EVERY
+                or time.monotonic() - self._last_flush > self.FLUSH_SECONDS
+            )
+        if due:
+            self.flush_hits()
+
+    def flush_hits(self) -> int:
+        """Persist pending hit counts. Returns how many skills were updated."""
+        with self._flush_lock:
+            with self._hits_lock:
+                pending, self._pending_hits = self._pending_hits, {}
+                self._last_flush = time.monotonic()
+            updated = 0
+            for slug, count in pending.items():
+                try:
+                    skill = self.get(slug)
+                    if skill is None:
+                        continue
+                    skill.hits += count
+                    self.save(skill)
+                    updated += 1
+                except (OSError, ValueError):
+                    continue
+            return updated
 
     def archive(self, name: str) -> bool:
         path = self.path_for(name)
@@ -248,13 +301,42 @@ class SkillStore:
         dest_dir = self.archive_root / slugify(name)
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / "SKILL.md"
-        dest.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
-        path.unlink()
+        with file_lock(path):
+            atomic_write(dest, path.read_text(encoding="utf-8"))
+            path.unlink(missing_ok=True)
         try:
             path.parent.rmdir()
         except OSError:
             pass
         return True
+
+    def _embed(self, texts: list[str]) -> list[list[float]]:
+        if self._embedder is not None:
+            return self._embedder(texts)
+        from retrieval.embeddings import get_embeddings_batch
+
+        return get_embeddings_batch(texts)
+
+    def _semantic_scores(self, query: str, skills: list[Skill]) -> Optional[list[float]]:
+        """Cosine similarity of the query to each skill, or None if embeddings are unavailable."""
+        if not skills:
+            return []
+        try:
+            missing = [s for s in skills if (s.slug, s.updated_at) not in self._embedding_cache]
+            if missing:
+                vectors = self._embed([f"{s.name}. {s.description}\n{s.procedure}"[:1500] for s in missing])
+                for skill, vec in zip(missing, vectors):
+                    self._embedding_cache[(skill.slug, skill.updated_at)] = list(vec)
+            (qvec,) = self._embed([query[:1500]])
+        except Exception:  # model not installed or failed to load: fall back to lexical ranking
+            return None
+        qnorm = sum(x * x for x in qvec) ** 0.5 or 1.0
+        scores = []
+        for skill in skills:
+            vec = self._embedding_cache[(skill.slug, skill.updated_at)]
+            norm = sum(x * x for x in vec) ** 0.5 or 1.0
+            scores.append(max(0.0, sum(a * b for a, b in zip(qvec, vec)) / (qnorm * norm)))
+        return scores
 
     def select(
         self,
@@ -264,16 +346,57 @@ class SkillStore:
         entities: list[str] | None = None,
         k: int = 2,
         min_score: float = 0.12,
+        user: Optional[str] = None,
+        semantic: bool = False,
     ) -> list[Skill]:
-        ranked = sorted(
-            ((s.score(query, agent_id=agent_id, entities=entities), s) for s in self.list()),
-            key=lambda x: x[0],
-            reverse=True,
-        )
-        picked = [s for score, s in ranked if score >= min_score][:k]
+        """Top-k skills visible to `user`/`agent_id`.
+
+        `semantic=True` ranks by embedding similarity (live chat); the default is lexical overlap so
+        benchmark selection is deterministic. Selecting never writes to disk.
+        """
+        pool = [s for s in self.list() if s.visible_to(user, agent_id)]
+        sem = self._semantic_scores(query, pool) if semantic else None
+        floor = max(min_score, 0.30) if sem is not None else min_score
+        scored = []
+        for i, skill in enumerate(pool):
+            base = sem[i] if sem is not None else skill.score(query, agent_id=agent_id, entities=entities)
+            if sem is not None:
+                if agent_id and skill.agents and agent_id not in skill.agents:
+                    base *= 0.4
+                if entities and skill.entities and not (set(entities) & set(skill.entities)):
+                    base *= 0.5
+            scored.append((base, skill))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        picked = [s for score, s in scored if score >= floor][:k]
         for skill in picked:
             self.touch(skill.name)
         return picked
+
+    def promote(self, name: str) -> bool:
+        """Make a user-scoped skill visible to everyone (an administrator decision)."""
+        skill = self.get(name)
+        if skill is None:
+            return False
+        skill.scope = "global"
+        self.save(skill)
+        return True
+
+    def maybe_curate(self, every: int) -> bool:
+        """Run the curator in the background once `every` saves have happened. Never blocks the caller."""
+        if self._saves_since_curate < max(1, every) or not self._curating.acquire(blocking=False):
+            return False
+        self._saves_since_curate = 0
+
+        def run() -> None:
+            try:
+                self.curate()
+            except (OSError, ValueError):
+                pass
+            finally:
+                self._curating.release()
+
+        threading.Thread(target=run, name="orion-skill-curator", daemon=True).start()
+        return True
 
     def remember_recovery(
         self,
@@ -284,6 +407,8 @@ class SkillStore:
         agent_id: str,
         entities: list[str],
         failure_class: str,
+        user: Optional[str] = None,
+        curate_every: int = 0,
     ) -> Optional[Skill]:
         """Extractive save after fail→success on the same verb. No extra LLM."""
         if failure_class in {"F6", "F7", "F6_SEMANTIC", "F7_POLICY"}:
@@ -295,7 +420,7 @@ class SkillStore:
             f"Working follow-up:\n{fix_preview[:1500]}\n\n"
             "Do not invent columns or entities. If the same error returns, abstain."
         )
-        return self.create(
+        skill = self.create(
             name=name,
             description=description,
             procedure=procedure,
@@ -303,7 +428,11 @@ class SkillStore:
             entities=list(entities or []),
             verbs=[verb] if verb else [],
             failure_class=failure_class,
+            scope=f"user:{user}" if user else "global",  # live chat never writes a global skill
         )
+        if curate_every:
+            self.maybe_curate(curate_every)
+        return skill
 
     def curate(self, *, merge_threshold: float = 0.72, max_active: int = 40) -> dict[str, Any]:
         """Drop run-specific recipes, merge overlap, archive extras past max_active."""
@@ -381,11 +510,20 @@ def self_eval_note(*, n_calls: int, verbs: list[str], last_error: str, recoverie
     )
 
 
+_STORES: dict[str, SkillStore] = {}
+_STORES_LOCK = threading.Lock()
+
+
 def default_store() -> SkillStore:
+    """The shared store for the configured skills directory (one instance, so hit batching works)."""
     ensure_dirs()
     SKILLS_DIR.mkdir(parents=True, exist_ok=True)
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-    return SkillStore(SKILLS_DIR)
+    key = str(SKILLS_DIR.resolve())
+    with _STORES_LOCK:
+        if key not in _STORES:
+            _STORES[key] = SkillStore(SKILLS_DIR)
+        return _STORES[key]
 
 
 def main() -> None:

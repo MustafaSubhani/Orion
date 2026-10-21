@@ -31,6 +31,7 @@ class OrchestrationResult:
     graph: dict = field(default_factory=dict)
     backtracks: int = 0
     tokens_used: int = 0
+    thread_id: Optional[str] = None
 
 
 def coordinate_stream(
@@ -45,6 +46,7 @@ def coordinate_stream(
     kb_enabled: bool = False,
     retry_only: bool = False,
     tenant: str = "default",
+    history: str = "",
 ) -> Generator[dict, None, None]:
     ctx = new_context(user=user, role=user_role, allowed_agents=allowed_agents, pin_agent=pin_agent)
     ctx.extra["tenant"] = tenant
@@ -57,6 +59,8 @@ def coordinate_stream(
     ctx.extra["kb_enabled"] = bool(kb_enabled)
     ctx.extra["mode"] = "product" if kb_enabled else "eval"
     ctx.extra["approvals"] = []  # shared by forked contexts; tools append pending approvals here
+    if history and kb_enabled:
+        ctx.extra["history"] = history  # live chat only: earlier turns of this thread
     tracer = get_tracer()
     pre = preprocess(query, user=user)
     if not pre.approved:

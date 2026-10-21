@@ -18,7 +18,7 @@ import httpx
 
 from harness import metrics
 from harness.config import Settings, get_settings
-from harness.context import RequestContext
+from harness.context import RequestContext, is_product
 from harness.errors import BudgetExceededError, HarnessError, TimeoutError_, ToolRuntimeError
 from harness.types import LLMResponse, SpanKind, ToolCall
 from harness.trace import get_tracer, hash_payload
@@ -66,6 +66,18 @@ class LLMGateway:
 
         from harness.context_engine import pack_for_model
 
+        summarize_fn = None
+        fold = True
+        if is_product(ctx):
+            from harness.settings_store import effective
+
+            mode = str(effective("context.summarize"))
+            fold = mode != "off"
+            if mode == "abstractive" and purpose != "summarize":  # the summarizer itself must not recurse
+                from harness import summarizer
+
+                summarize_fn = lambda turns: summarizer.summarize_turns(ctx, turns)  # noqa: E731
+
         packed = pack_for_model(
             messages,
             tools=tools,
@@ -77,6 +89,8 @@ class LLMGateway:
             preview_chars=settings.tool_preview_chars,
             window_override=settings.context_window or None,
             remaining_tokens=max(0, ctx.budget.max_tokens - ctx.budget.tokens_used),
+            summarize=summarize_fn,
+            fold=fold,
         )
         messages = packed.messages
         tools = packed.tools
@@ -153,6 +167,8 @@ class LLMGateway:
                     span.extra["compacted"] = packed.compacted
                     span.extra["artifacts_stubbed"] = packed.artifacts_stubbed
                     span.extra["middle_folded"] = packed.middle_folded
+                    if packed.summary_reason:
+                        span.extra["summary"] = packed.summary_reason
                     parsed.packed_messages = packed.messages
                     metrics.inc("orion_llm_tokens_total", {"purpose": purpose, "direction": "in"}, parsed.tokens_in or packed.tokens_est)
                     metrics.inc("orion_llm_tokens_total", {"purpose": purpose, "direction": "out"}, parsed.tokens_out)

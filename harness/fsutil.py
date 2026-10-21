@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -51,10 +52,35 @@ def atomic_write(path: Path | str, text: str, *, encoding: str = "utf-8") -> Non
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(tmp_name, target)
+        _replace_with_retry(tmp_name, target)
     except BaseException:
         try:
             os.unlink(tmp_name)
         except OSError:
             pass
         raise
+
+
+def _replace_with_retry(source: str, target: Path, attempts: int = 40) -> None:
+    """`os.replace`, retrying briefly on Windows where a reader holding the file open blocks the swap."""
+    for attempt in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.005 * (attempt + 1))
+
+
+def read_text_retry(path: Path | str, *, encoding: str = "utf-8", attempts: int = 40) -> str:
+    """`read_text` that tolerates the instant a writer is swapping the file (PermissionError on Windows)."""
+    target = Path(path)
+    for attempt in range(attempts):
+        try:
+            return target.read_text(encoding=encoding)
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.005 * (attempt + 1))
+    raise AssertionError("unreachable")

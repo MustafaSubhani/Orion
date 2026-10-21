@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 # Conservative defaults. Override with ORION_CONTEXT_WINDOW for a local 8k/32k model.
 _WINDOW_HINTS: tuple[tuple[str, int], ...] = (
@@ -56,6 +56,8 @@ class PackedPrompt:
     middle_folded: bool = False
     schemas_slimmed: bool = False
     dropped: int = 0
+    summarized: bool = False
+    summary_reason: str = ""
 
 
 def estimate_tokens(value: Any) -> int:
@@ -112,6 +114,8 @@ def pack_for_model(
     preview_chars: int = 1200,
     window_override: int | None = None,
     remaining_tokens: int | None = None,
+    summarize: Optional[Callable[[list[dict[str, Any]]], tuple[Optional[str], str]]] = None,
+    fold: bool = True,
 ) -> PackedPrompt:
     """Fit `messages` into the model window. Mutates copies, never the caller's list.
 
@@ -150,12 +154,24 @@ def pack_for_model(
     if stats.tokens_est <= budget:
         return stats
 
-    packed, folded = _fold_middle(packed, tail_keep=tail_keep)
-    stats.middle_folded = folded
-    stats.messages = packed
-    stats.tokens_est = _total(packed, out_tools)
-    if stats.tokens_est <= budget:
-        return stats
+    if summarize is not None:
+        summarised, did, reason = _summarize_middle(packed, tail_keep=tail_keep, summarize=summarize)
+        stats.summary_reason = reason
+        if did:
+            packed = summarised
+            stats.summarized = True
+            stats.messages = packed
+            stats.tokens_est = _total(packed, out_tools)
+            if stats.tokens_est <= budget:
+                return stats
+
+    if fold:
+        packed, folded = _fold_middle(packed, tail_keep=tail_keep)
+        stats.middle_folded = folded
+        stats.messages = packed
+        stats.tokens_est = _total(packed, out_tools)
+        if stats.tokens_est <= budget:
+            return stats
 
     packed, n_stub_tail = _stub_tool_payloads(packed, store, preview_chars, keep_last=0)
     stats.artifacts_stubbed += n_stub_tail
@@ -220,6 +236,52 @@ def _stub_tool_payloads(
         else:
             out.append(msg)
     return out, n
+
+
+def _split_middle(
+    messages: list[dict[str, Any]], tail_keep: int
+) -> Optional[tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]]:
+    """Split into (head, middle, tail). Head is system + first user turn; tail is the live end.
+
+    The tail never starts with a tool result, because that would orphan it from its tool call.
+    """
+    rest = list(messages)
+    head: list[dict[str, Any]] = []
+    if rest and rest[0].get("role") == "system":
+        head.append(rest.pop(0))
+    if rest and rest[0].get("role") == "user":
+        head.append(rest.pop(0))
+    if len(rest) <= tail_keep:
+        return None
+    middle, tail = rest[:-tail_keep], rest[-tail_keep:]
+    while tail and tail[0].get("role") == "tool":
+        middle.append(tail.pop(0))
+    if not middle or not tail:
+        return None
+    return head, middle, tail
+
+
+MIN_SUMMARY_TOKENS = 300  # below this an LLM call costs more than it saves
+
+
+def _summarize_middle(
+    messages: list[dict[str, Any]],
+    *,
+    tail_keep: int,
+    summarize: Callable[[list[dict[str, Any]]], tuple[Optional[str], str]],
+) -> tuple[list[dict[str, Any]], bool, str]:
+    """Replace the middle turns with a model-written, fact-checked summary. `(messages, did, reason)`."""
+    parts = _split_middle(messages, tail_keep)
+    if parts is None:
+        return messages, False, "nothing_to_summarize"
+    head, middle, tail = parts
+    if sum(_msg_tokens(m) for m in middle) < MIN_SUMMARY_TOKENS:
+        return messages, False, "too_small"
+    summary, reason = summarize(middle)
+    if summary is None:
+        return messages, False, reason
+    note = {"role": "user", "content": "[context summary]\n" + summary}
+    return head + [note] + tail, True, reason
 
 
 def _fold_middle(messages: list[dict[str, Any]], *, tail_keep: int) -> tuple[list[dict[str, Any]], bool]:

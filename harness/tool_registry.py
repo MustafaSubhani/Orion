@@ -33,6 +33,11 @@ from harness.trace import get_tracer
 
 Handler = Callable[[dict[str, Any], RequestContext], Any]
 
+# Built-in tools that write only to the harness's own scratch storage (chart images, saved skills).
+# The approval policy is for changes to external systems, so these are exempt. MCP and plugin
+# tools that declare a write are never exempt.
+INTERNAL_WRITE_VERBS = frozenset({"render_chart", "skill_manage"})
+
 
 @dataclass
 class CircuitState:
@@ -131,7 +136,7 @@ class ToolRegistry:
         if manifest is None:
             raise UnknownToolError(f"Unknown tool '{verb}'. Use search_tools.")
         assert_tool_allowed(ctx.role, verb)
-        if manifest.side_effect == SideEffect.WRITE:
+        if manifest.side_effect == SideEffect.WRITE and verb not in INTERNAL_WRITE_VERBS:
             blocked = self._write_gate(verb, arguments, ctx)
             if blocked is not None:
                 return blocked
@@ -825,14 +830,21 @@ def _handle_skill_manage(args: dict[str, Any], ctx: RequestContext) -> dict:
 
     op = str(args.get("op") or "").strip().lower()
     store = default_store()
+    live = is_product(ctx)
+    viewer = ctx.user if live else None  # eval mode only ever sees global skills
+    if live:
+        from harness.settings_store import effective
+
+        if not effective("memory.enabled"):
+            raise PolicyDeniedError("memory is disabled by the administrator")
     if op == "list":
-        items = store.list(str(args.get("query") or ""))
-        rows = [{"name": s.name, "description": s.description, "hits": s.hits} for s in items]
+        items = [s for s in store.list(str(args.get("query") or "")) if s.visible_to(viewer)]
+        rows = [{"name": s.name, "description": s.description, "hits": s.hits, "scope": s.scope} for s in items]
         return {"skills": rows, "preview": "\n".join(f"- {r['name']}: {r['description']}" for r in rows) or "(none)"}
     if op == "get":
         name = str(args.get("name") or "").strip()
         skill = store.get(name) if name else None
-        if skill is None:
+        if skill is None or not skill.visible_to(viewer):
             raise SchemaInvalidError(f"unknown skill '{name}'")
         text = skill.to_markdown()
         return {"name": skill.name, "text": text, "preview": text[:1500]}
@@ -840,10 +852,11 @@ def _handle_skill_manage(args: dict[str, Any], ctx: RequestContext) -> dict:
         raise PolicyDeniedError("limited role cannot create or archive skills")
     if op == "archive":
         name = str(args.get("name") or "").strip()
-        ok = store.archive(name) if name else False
-        if not ok:
+        target = store.get(name) if name else None
+        if target is None or not target.visible_to(viewer):
             raise SchemaInvalidError(f"unknown skill '{name}'")
-        store.curate()
+        store.archive(name)
+        _curate(store, live)
         return {"archived": name, "preview": f"archived {name}"}
     if op == "create":
         name = str(args.get("name") or "").strip()
@@ -858,12 +871,23 @@ def _handle_skill_manage(args: dict[str, Any], ctx: RequestContext) -> dict:
                 procedure=procedure,
                 agents=[getattr(ctx, "pin_agent", None) or ""] if getattr(ctx, "pin_agent", None) else [],
                 verbs=verbs,
+                scope=f"user:{ctx.user}" if live else "global",
             )
         except ValueError as exc:
             raise PolicyDeniedError(str(exc)) from exc
-        store.curate()
+        _curate(store, live)
         return {"name": skill.slug, "preview": f"saved skill `{skill.slug}`"}
     raise SchemaInvalidError("op must be list, get, create, or archive")
+
+
+def _curate(store: Any, live: bool) -> None:
+    """Eval mode curates inline as before. Live chat curates in the background every N saves."""
+    if not live:
+        store.curate()
+        return
+    from harness.settings_store import effective
+
+    store.maybe_curate(int(effective("memory.curate_every")))
 
 
 def _handle_search_tools(args: dict[str, Any], ctx: RequestContext) -> dict:

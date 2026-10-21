@@ -29,7 +29,7 @@ def _prepare(req: ChatRequest) -> tuple[str, str | None]:
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, identity: Identity = Depends(current_identity)) -> ChatResponse:
     text, pin = _prepare(req)
-    result = service.run(identity, text, allowed_agents=req.allowed_agents, pin_agent=pin)
+    result = service.run(identity, text, allowed_agents=req.allowed_agents, pin_agent=pin, thread_id=req.thread_id)
     tasks = [
         TaskInfo(
             id=str(t.get("id", "")),
@@ -47,7 +47,7 @@ def chat(req: ChatRequest, identity: Identity = Depends(current_identity)) -> Ch
         agents_used=result.agents_used,
         success=result.success,
         request_id=result.request_id,
-        thread_id=req.thread_id,
+        thread_id=result.thread_id,
     )
 
 
@@ -57,7 +57,9 @@ def chat_stream(req: ChatRequest, identity: Identity = Depends(current_identity)
 
     def generate() -> Iterator[str]:
         try:
-            for update in service.stream(identity, text, allowed_agents=req.allowed_agents, pin_agent=pin):
+            for update in service.stream(
+                identity, text, allowed_agents=req.allowed_agents, pin_agent=pin, thread_id=req.thread_id
+            ):
                 yield sse(update)
         except Exception:  # stream boundary: report a safe error event instead of a broken connection
             log.exception("chat stream failed")

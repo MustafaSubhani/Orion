@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend import errors
-from backend.routes import admin, agents, approvals, auth, chat, kb, lab, mcp, openai_compat, system, traces
+from backend.routes import admin, agents, approvals, auth, chat, kb, lab, mcp, openai_compat, system, threads, traces
 from harness import metrics
 from harness.config import GRAPHS_DIR, get_settings
 
@@ -74,7 +74,7 @@ def create_app() -> FastAPI:
     # Chart files carry random names, so the URL itself is the capability (an <img> cannot send a bearer).
     app.mount("/graphs", StaticFiles(directory=str(GRAPHS_DIR)), name="graphs")
 
-    for module in (system, auth, chat, openai_compat, agents, approvals, kb, traces, admin, lab, mcp):
+    for module in (system, auth, chat, openai_compat, agents, approvals, threads, kb, traces, admin, lab, mcp):
         app.include_router(module.router)
     return app
 

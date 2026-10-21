@@ -36,6 +36,43 @@ def fake_stream(text: str = "42 employees", agents: tuple[str, ...] = ("hr",)):
     return _stream
 
 
+class FakeGateway:
+    """Records every completion request and replays scripted replies. Never touches the network."""
+
+    def __init__(self, replies=None, error=None):
+        from harness.types import LLMResponse
+
+        self._make = lambda text: LLMResponse(text=text, model="fake", tokens_in=10, tokens_out=5)
+        self.replies = list(replies or [])
+        self.error = error
+        self.calls: list[dict] = []
+
+    def complete(self, *, ctx, messages, purpose="worker", name="", max_tokens=0, **kw):
+        self.calls.append({"purpose": purpose, "name": name, "messages": messages, "max_tokens": max_tokens})
+        if self.error is not None:
+            raise self.error
+        ctx.charge_tokens(15)
+        return self._make(self.replies.pop(0) if self.replies else "ok")
+
+
+def installed_runtime(gateway):
+    """Context manager: make `get_runtime()` return a runtime with this gateway, then restore it."""
+    from contextlib import contextmanager
+
+    from harness import context as ctxmod
+
+    @contextmanager
+    def cm():
+        previous = ctxmod._RUNTIME
+        ctxmod.set_runtime(ctxmod.Runtime(gateway=gateway, tools=None, agents=None, tracer=None, healer=None))
+        try:
+            yield gateway
+        finally:
+            ctxmod._RUNTIME = previous
+
+    return cm()
+
+
 class ApiTestCase(unittest.TestCase):
     """Boots the real app against temp databases. Subclasses may extend `extra_env`."""
 
