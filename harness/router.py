@@ -5,12 +5,11 @@ from __future__ import annotations
 import json
 import re
 import threading
-from typing import Optional
 
 from harness.context import RequestContext
 from harness.errors import RoutingError
-from harness.types import AgentCard, AgentStatus, SpanKind
 from harness.trace import get_tracer
+from harness.types import AgentCard, AgentStatus, SpanKind
 
 
 def lexical_score(query: str, card: AgentCard) -> float:
@@ -141,7 +140,7 @@ def _cosine(a: list[float], b: list[float]) -> float:
 
     if not a or not b or len(a) != len(b):
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(y * y for y in b))
     if na == 0 or nb == 0:

@@ -15,10 +15,8 @@ from uuid import uuid4
 
 from harness import faults, guard, metrics
 from harness.config import GRAPHS_DIR, get_settings
-from harness.packs import registry as pack_registry
 from harness.context import RequestContext, is_product
 from harness.errors import (
-    CircuitOpenError,
     ErrorClass,
     HarnessError,
     PolicyDeniedError,
@@ -27,9 +25,10 @@ from harness.errors import (
     ToolRuntimeError,
     UnknownToolError,
 )
+from harness.packs import registry as pack_registry
 from harness.permissions import assert_tool_allowed
-from harness.types import SideEffect, SpanKind, ToolManifest, ToolResult
 from harness.trace import get_tracer
+from harness.types import SideEffect, SpanKind, ToolManifest, ToolResult
 
 Handler = Callable[[dict[str, Any], RequestContext], Any]
 
@@ -607,8 +606,9 @@ def _handle_sql_spec(args: dict[str, Any], ctx: RequestContext) -> dict:
 
 def _handle_forecast(args: dict[str, Any], ctx: RequestContext) -> dict:
     import pandas as pd
-    from retrieval.tables import load_table
     from statsmodels.tsa.arima.model import ARIMA
+
+    from retrieval.tables import load_table
 
     table = str(args.get("table") or "")
     column = str(args.get("column") or "")
@@ -641,6 +641,7 @@ def _handle_forecast(args: dict[str, Any], ctx: RequestContext) -> dict:
 
 def _handle_anomaly(args: dict[str, Any], ctx: RequestContext) -> dict:
     import pandas as pd
+
     from retrieval.tables import load_table
 
     table = str(args.get("table") or "")
@@ -687,7 +688,7 @@ def _handle_calendar(args: dict[str, Any], ctx: RequestContext) -> dict:
 
     df = unique_calendar_events(df)
     match_count = int(len(df))
-    count_only = args.get("count_only") in {True, "true", "True", 1, "1"}
+    count_only = args.get("count_only") in {True, "true", "True", "1"}
     if count_only:
         return {
             "rows": match_count,
@@ -717,6 +718,7 @@ def _handle_chart(args: dict[str, Any], ctx: RequestContext) -> dict:
     from datetime import datetime
 
     import pandas as pd
+
     from sandbox.exec_sandbox import execute_sql_spec
 
     spec = {

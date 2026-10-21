@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from harness.config import FROZEN_DIR, TASKS_DIR, get_settings
+from harness.config import TASKS_DIR, get_settings
 from retrieval.tables import TABLE_FILES
 
 

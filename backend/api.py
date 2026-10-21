@@ -7,6 +7,7 @@ startup work happens in the lifespan hook, so importing this module is cheap and
 from __future__ import annotations
 
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 
@@ -33,6 +34,11 @@ async def lifespan(app: FastAPI):
     from harness import mcp_client
 
     mcp_client.start_in_background(runtime.tools)
+    try:
+        days = float(os.getenv("ORION_TRACE_RETENTION_DAYS", "30"))
+    except ValueError:
+        days = 30.0
+    runtime.tracer.prune(days)
     log.info("OrionHarness API ready")
     yield
     mcp_client.bridge().close_all()

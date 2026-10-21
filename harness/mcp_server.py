@@ -18,7 +18,7 @@ import sys
 from typing import Any, Optional
 
 from harness.context import get_runtime, new_context
-from harness.errors import ErrorClass, HarnessError, UnknownToolError
+from harness.errors import HarnessError, UnknownToolError
 from harness.permissions import assert_tool_allowed, strip_salary_if_limited
 from harness.types import SideEffect
 from retrieval.tables import TABLE_ENTITY, list_tables, load_table

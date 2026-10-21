@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 import string
 import threading
@@ -11,7 +12,7 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 from uuid import uuid4
 
 from harness.config import TRACES_DIR, ensure_dirs
@@ -41,6 +42,68 @@ class Tracer:
         self.audit_path = self.traces_dir.parent / "audit_log.jsonl"
         self._spans: dict[str, list[Span]] = {}
         self._span_lock = threading.Lock()
+        self.exporters: list[Callable[[dict[str, Any]], None]] = []
+        self.scrub = os.getenv("ORION_TRACE_SCRUB", "1").strip().lower() not in {"0", "false", "no", "off"}
+        try:
+            self.max_audit_bytes = int(float(os.getenv("ORION_TRACE_MAX_MB", "50")) * 1024 * 1024)
+        except ValueError:
+            self.max_audit_bytes = 50 * 1024 * 1024
+        self.audit_backups = 3
+
+    def add_exporter(self, fn: Callable[[dict[str, Any]], None]) -> None:
+        """Receive every finished span as a dict (already scrubbed). Hook for OpenTelemetry or a log shipper."""
+        self.exporters.append(fn)
+
+    def _scrubbed(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Copy of a span dict with PII masked in its string values. The in-memory span is never changed."""
+        if not self.scrub:
+            return data
+        from harness.permissions import redact_pii
+
+        def clean(value: Any) -> Any:
+            if isinstance(value, str):
+                return redact_pii(value)
+            if isinstance(value, dict):
+                return {k: clean(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [clean(v) for v in value]
+            return value
+
+        out = dict(data)
+        out["extra"] = clean(data.get("extra") or {})
+        return out
+
+    def _rotate_audit(self) -> None:
+        """Size-based rotation for the shared audit log. Call with `_write_lock` held."""
+        try:
+            if not self.audit_path.exists() or self.audit_path.stat().st_size < self.max_audit_bytes:
+                return
+            oldest = self.audit_path.with_name(f"audit_log.{self.audit_backups}.jsonl")
+            oldest.unlink(missing_ok=True)
+            for index in range(self.audit_backups - 1, 0, -1):
+                source = self.audit_path.with_name(f"audit_log.{index}.jsonl")
+                if source.exists():
+                    source.replace(self.audit_path.with_name(f"audit_log.{index + 1}.jsonl"))
+            self.audit_path.replace(self.audit_path.with_name("audit_log.1.jsonl"))
+        except OSError as exc:
+            print(f"[TRACE] audit rotation failed: {exc}")
+
+    def prune(self, retention_days: float) -> int:
+        """Delete per-request trace files older than `retention_days`. 0 or less keeps everything."""
+        if retention_days <= 0:
+            return 0
+        import time as _time
+
+        cutoff = _time.time() - retention_days * 86400
+        removed = 0
+        for path in list(self.traces_dir.glob("*.jsonl")) + list(self.traces_dir.glob("*.meta.json")):
+            try:
+                if path.stat().st_mtime < cutoff:
+                    path.unlink()
+                    removed += 1
+            except OSError:
+                continue
+        return removed
 
     def _request_path(self, request_id: str) -> Path:
         safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in request_id)
@@ -82,16 +145,23 @@ class Tracer:
     def append(self, span: Span) -> None:
         with self._span_lock:
             self._spans.setdefault(span.request_id, []).append(span)
-        line = json.dumps(span.to_dict(), ensure_ascii=False, default=str)
+        data = self._scrubbed(span.to_dict())
+        line = json.dumps(data, ensure_ascii=False, default=str)
         path = self._request_path(span.request_id)
         try:
             with _write_lock:
+                self._rotate_audit()
                 with open(path, "a", encoding="utf-8") as fh:
                     fh.write(line + "\n")
                 with open(self.audit_path, "a", encoding="utf-8") as fh:
                     fh.write(line + "\n")
         except OSError as exc:
             print(f"[TRACE] write failed: {exc}")
+        for export in list(self.exporters):
+            try:
+                export(data)
+            except Exception:  # a broken exporter must never break request tracing
+                continue
 
     def spans_for(self, request_id: str) -> list[Span]:
         with self._span_lock:
@@ -149,6 +219,7 @@ class Tracer:
         }
         try:
             with _write_lock:
+                self._rotate_audit()
                 with open(self.audit_path, "a", encoding="utf-8") as fh:
                     fh.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
         except OSError as exc:

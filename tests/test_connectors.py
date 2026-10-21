@@ -17,7 +17,7 @@ from harness.connectors.base import scrub
 from harness.connectors.files import FilesConnector
 from harness.connectors.sql import SqlAlchemyConnector
 from harness.context import new_context
-from harness.errors import PolicyDeniedError, SchemaInvalidError
+from harness.errors import SchemaInvalidError
 from harness.packs import PackRegistry, set_registry
 from harness.tool_registry import ToolRegistry
 from packs.enterprise_lake import PACK

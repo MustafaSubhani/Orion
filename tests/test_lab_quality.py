@@ -167,7 +167,6 @@ class ContractGenerationTests(LabCase):
 
     def test_generation_never_reads_the_benchmark(self) -> None:
         import inspect
-
         import re
 
         source = inspect.getsource(lab_eval)

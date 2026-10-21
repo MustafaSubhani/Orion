@@ -20,8 +20,8 @@ from harness import metrics
 from harness.config import Settings, get_settings
 from harness.context import RequestContext, is_product
 from harness.errors import BudgetExceededError, HarnessError, TimeoutError_, ToolRuntimeError
-from harness.types import LLMResponse, SpanKind, ToolCall
 from harness.trace import get_tracer, hash_payload
+from harness.types import LLMResponse, SpanKind, ToolCall
 
 
 class LLMGateway:
@@ -182,7 +182,7 @@ class LLMGateway:
                     last_err = TimeoutError_(f"LLM timeout after {timeout_s}s", details=str(exc))
                     if attempt == max_retries - 1:
                         span.error_class = "Timeout"
-                        raise last_err
+                        raise last_err from exc
                 except httpx.HTTPStatusError as exc:
                     last_err = ToolRuntimeError(
                         f"LLM HTTP {exc.response.status_code}",
@@ -190,12 +190,12 @@ class LLMGateway:
                     )
                     if attempt == max_retries - 1:
                         span.error_class = "ToolRuntime"
-                        raise last_err
+                        raise last_err from exc
                 except (httpx.HTTPError, json.JSONDecodeError, KeyError, ValueError) as exc:
                     last_err = ToolRuntimeError("LLM call failed", details=str(exc)[:300])
                     if attempt == max_retries - 1:
                         span.error_class = "ToolRuntime"
-                        raise last_err
+                        raise last_err from exc
                     time.sleep(2 * (attempt + 1))
             raise last_err or ToolRuntimeError("LLM call failed")
 

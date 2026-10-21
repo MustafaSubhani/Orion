@@ -7,9 +7,10 @@ import os
 import re
 import tempfile
 from datetime import datetime
+
 from docx import Document
-from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Pt, RGBColor
 
 
 def markdown_to_docx(markdown_text: str, title: str = "Orion Response") -> str:

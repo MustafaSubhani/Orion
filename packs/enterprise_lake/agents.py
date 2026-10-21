@@ -5,7 +5,6 @@ from __future__ import annotations
 from harness.types import AgentCard, LatencyClass
 from packs.enterprise_lake.policy import COLLECTION_FINANCE, COLLECTION_HR, COLLECTION_SCHEDULER
 
-
 HR_PROMPT = """You are the HR worker for a heterogeneous enterprise data lake.
 Entity for HR tables is MNC (global payroll dump). Do not join MNC payroll to MSFT 10-Ks or AAPL financials.
 Sales, Marketing, IT, Engineering, HR, etc. are Department values on the same `hr` table — not separate companies.

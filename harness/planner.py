@@ -16,8 +16,8 @@ from harness.graph import GraphNode, RunGraph, build_run_graph
 from harness.healing import FailureClass, HealAction
 from harness.permissions import postprocess_output, preprocess
 from harness.router import route, shortlist
-from harness.types import SpanKind, Task, TaskStatus, WorkerResult
 from harness.trace import get_tracer
+from harness.types import SpanKind, Task, TaskStatus, WorkerResult
 from workers.generic import run_worker
 
 

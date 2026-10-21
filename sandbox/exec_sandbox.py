@@ -11,7 +11,6 @@ from __future__ import annotations
 import hashlib
 import json
 import operator
-import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -21,7 +20,7 @@ from harness.config import PROJECT_ROOT
 from harness.errors import SandboxError, SchemaInvalidError
 from harness.permissions import SALARY_COLUMNS
 from retrieval.tables import load_table, table_entity
-from sandbox.gate import GateResult, static_gate
+from sandbox.gate import static_gate
 
 ALLOWED_OPS = {
     "eq": operator.eq,

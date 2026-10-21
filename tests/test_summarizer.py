@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from harness import settings_store as ss
-from harness import summarizer, threads
+from harness import summarizer
 from harness.config import ModelTiers, Settings
 from harness.context import new_context
 from harness.context_engine import MIN_SUMMARY_TOKENS, pack_for_model
@@ -176,7 +176,7 @@ class PackerIntegrationTests(unittest.TestCase):
     def test_small_middles_are_not_worth_a_model_call(self) -> None:
         msgs = long_conversation(turns=2, size=10)
         called = []
-        out = pack_for_model(msgs, summarize=lambda t: called.append(t) or ("S", "ok"), **{**self.KW, "window_override": 600})
+        pack_for_model(msgs, summarize=lambda t: called.append(t) or ("S", "ok"), **{**self.KW, "window_override": 600})
         self.assertEqual(called, [])
         self.assertLess(MIN_SUMMARY_TOKENS, 1000)
 

@@ -40,9 +40,8 @@ class FakeGateway:
     """Records every completion request and replays scripted replies. Never touches the network."""
 
     def __init__(self, replies=None, error=None):
-        from harness.types import LLMResponse
-
         from harness.config import get_settings
+        from harness.types import LLMResponse
 
         self.settings = get_settings()
         self._make = lambda text: LLMResponse(text=text, model="fake", tokens_in=10, tokens_out=5)

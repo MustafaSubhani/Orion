@@ -44,7 +44,9 @@ class QueueDecision(BaseModel):
 
 
 @router.get("/quality/queue")
-def quality_queue(status: Optional[str] = Query(default="pending", pattern="^(pending|dismissed|resolved)$"), admin: Identity = Depends(require_admin)) -> list[dict[str, Any]]:
+def quality_queue(
+    status: Optional[str] = Query(default="pending", pattern="^(pending|dismissed|resolved)$"), admin: Identity = Depends(require_admin)
+) -> list[dict[str, Any]]:
     """Answers the background judge found weak. Review them; nothing is patched without a decision here."""
     from harness import quality
 

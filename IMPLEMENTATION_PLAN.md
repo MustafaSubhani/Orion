@@ -56,7 +56,7 @@ The gateway never sends the raw ReAct transcript. Before each HTTP call, `pack_f
 4. Folds middle turns into one extractive compact note (system + live tail stay).
 5. Drops oldest non-system turns, then slims tool schemas (`search_tools` / `session_get` stay full).
 
-Workers call `session_get` to expand one artifact. Compaction is extractive — no extra summarizer LLM. Traces record `compacted`, `artifacts_stubbed`, `middle_folded`.
+Workers call `session_get` to expand one artifact. In the benchmark path compaction stays extractive (no extra LLM call). In product mode `context.summarize=abstractive` summarizes the folded middle with the summarizer tier and **fact-checks** the result (every number, id and date must appear in the source), falling back to the extractive note. Traces record `compacted`, `artifacts_stubbed`, `middle_folded`.
 
 Env: `ORION_CONTEXT_WINDOW` (0 = infer), `ORION_COMPACT_RATIO` (default 0.75), `ORION_CONTEXT_TAIL` (8), `ORION_TOOL_PREVIEW_CHARS` (1200).
 
@@ -154,3 +154,35 @@ Same gateway, tools, and healing. Two catalogs:
 | Live KB | `kb/` + chroma `kb_live` (optional) | `POST /ingest` (chat attach) | chat workers via `kb_list` / `kb_search` / `kb_query` |
 
 Chat uploads never overwrite `data/frozen/` or `bench/`. `python -m bench.run` passes `kb_enabled=False`. `sql_spec` rejects `kb_*` tables (`use kb_query`). Lexical `kb_search` works if embeddings/chroma are missing. Max upload 15MB. crawl4ai is not in this step.
+
+## Platform layer (product mode)
+
+Everything below is gated by is_product(ctx) (live chat sets kb_enabled=True). The benchmark path never calls it, and 	ests/registry_snapshot.py plus the sanity benches pin that.
+
+| Concern | Module | Contract |
+|---|---|---|
+| Settings | harness/settings_store.py | DB admin override, then ORION_<KEY>, then default; typed, bounded, tenant-aware, audited. One SCHEMA dict is the single source of truth. |
+| State | harness/statedb.py | One SQLite file (ORION_STATE_DB) for settings, approvals, threads, quality queue. Atomic file helpers in harness/fsutil.py retry Windows os.replace collisions. |
+| Auth | harness/auth.py, ackend/database.py | scrypt hashes, hashed expiring sessions, rate-limited login, auth required by default. |
+| API | ackend/api.py, ackend/routes/* | create_app() + lifespan; one error envelope; /v1/chat/completions is OpenAI-compatible and streams. |
+| Concurrency | harness/context.py, planner.py | RequestContext.fork() per node: own cancel token, shared budget/session/fault state behind locks. Waves run in a thread pool with node timeouts and crash isolation. |
+| Healing | harness/healing.py, harness/faults.py | Resolver applies the declared precedence F7>F8>F4>F1>F2>F5>F3>F6. Fault injection lives only in aults.py. |
+| Packs | harness/packs.py, packs/enterprise_lake/ | Everything lake-specific (entities, joins, tools, agent cards, policy) is a pack. A parity test freezes the registry the paper measured. |
+| Connectors | harness/connectors/ | Read-only SQLAlchemy and file sources, live schema introspection feeding F4, role masking, symmetric join policy. |
+| Guard | harness/guard.py | Windowed HF classifier on input and untrusted tool output; fail open or closed; guard.enabled toggles it. |
+| Web search | harness/web_search.py | openai hosted search on the OpenAI provider, ddg, or mcp:<server>; allowed-domain filter; results pass through the guard. |
+| MCP | harness/mcp_server.py, mcp_client.py | Server speaks 2025-06-18 over stdio and HTTP. Client bridges external servers on a background asyncio loop and exposes them as tools. |
+| Writes | harness/approvals.py, 	ool_registry._write_gate | External WRITE and egress verbs follow 	ools.write_policy; confirm creates a single-use grant. Internal memory verbs are exempt (INTERNAL_WRITE_VERBS). |
+| Memory | 	hreads.py, summarizer.py, skills.py | Threads with rolling fact-checked summary; skills are scoped per user/tenant, batched, semantically selected, curated in the background. |
+| Lab | lab/, harness/agent_registry.py, harness/quality.py | Card-only agents run the generic worker. Contract tests are built from the live schema; promotion needs lab.min_score; repair restores via 
+egistry.update on regression. |
+| Sandbox | sandbox/policy.py, limits.py | One policy for the AST gate; Job Object (Windows) / rlimits (POSIX); minimal env; sockets cut. |
+| Traces | harness/trace.py | Disk copy is PII-scrubbed (in-memory spans are not, so judges and the bench see raw), audit log rotation, retention pruning, pluggable exporters. |
+| CLI / packaging | harness/cli.py, pyproject.toml | orion serve|mcp|check|settings|users|connectors|version; extras per feature; orion.packs entry point group. ench, paper, data are not packaged. |
+
+Known limits (by design, documented rather than hidden):
+
+- The write gate covers external WRITE and egress verbs only.
+- F8 rewind remains in the planner outer loop, not the resolver.
+- Six frozen-table tools stay in core because the paper's oracles depend on them.
+- Lab evaluation uses the configured judge; a different-family judge is available but not required.

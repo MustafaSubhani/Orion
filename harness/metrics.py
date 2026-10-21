@@ -56,10 +56,10 @@ def _fmt(labels: tuple[tuple[str, str], ...]) -> str:
 def snapshot() -> dict[str, float]:
     """Flat `name{labels}` to value map, used by tests."""
     with _lock:
-        out = {f"{n}{_fmt(l)}": v for (n, l), v in _counters.items()}
-        for (n, l), (total, count) in _sums.items():
-            out[f"{n}_sum{_fmt(l)}"] = total
-            out[f"{n}_count{_fmt(l)}"] = count
+        out = {f"{n}{_fmt(lbl)}": v for (n, lbl), v in _counters.items()}
+        for (n, lbl), (total, count) in _sums.items():
+            out[f"{n}_sum{_fmt(lbl)}"] = total
+            out[f"{n}_count{_fmt(lbl)}"] = count
     return out
 
 

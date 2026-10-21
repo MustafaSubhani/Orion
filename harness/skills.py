@@ -20,6 +20,7 @@ from typing import Any, Callable, Optional
 
 from harness.config import SKILLS_DIR, ensure_dirs
 from harness.fsutil import atomic_write, file_lock, read_text_retry
+
 ARCHIVE_DIR = SKILLS_DIR / "_archive"
 _SLUG = re.compile(r"[^a-z0-9]+")
 _BANNED = ("bench/", "MISTRAL_API_KEY", "eval(", "subprocess", "__import__", "../")
@@ -325,7 +326,7 @@ class SkillStore:
             missing = [s for s in skills if (s.slug, s.updated_at) not in self._embedding_cache]
             if missing:
                 vectors = self._embed([f"{s.name}. {s.description}\n{s.procedure}"[:1500] for s in missing])
-                for skill, vec in zip(missing, vectors):
+                for skill, vec in zip(missing, vectors, strict=False):
                     self._embedding_cache[(skill.slug, skill.updated_at)] = list(vec)
             (qvec,) = self._embed([query[:1500]])
         except Exception:  # model not installed or failed to load: fall back to lexical ranking
@@ -335,7 +336,7 @@ class SkillStore:
         for skill in skills:
             vec = self._embedding_cache[(skill.slug, skill.updated_at)]
             norm = sum(x * x for x in vec) ** 0.5 or 1.0
-            scores.append(max(0.0, sum(a * b for a, b in zip(qvec, vec)) / (qnorm * norm)))
+            scores.append(max(0.0, sum(a * b for a, b in zip(qvec, vec, strict=False)) / (qnorm * norm)))
         return scores
 
     def select(

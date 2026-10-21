@@ -5,9 +5,8 @@ from __future__ import annotations
 import itertools
 import unittest
 
-from harness.context import new_context
-from harness.graph import Checkpoint, GraphNode, RunGraph, build_run_graph
 from harness.errors import StateIntegrityError
+from harness.graph import Checkpoint, GraphNode, RunGraph, build_run_graph
 from harness.healing import PRECEDENCE, FailureClass, Healer
 from harness.tool_registry import rebind_verb
 from harness.types import TaskStatus, WorkerResult

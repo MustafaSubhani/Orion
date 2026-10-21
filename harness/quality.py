@@ -76,8 +76,13 @@ def judge_and_queue(
         if not weak:
             return None
         return enqueue(
-            tenant=tenant, request_id=request_id, agent_id=(agents or [""])[0], query=query, answer=answer,
-            judge=card.to_dict(), reason=card.repair_hint or f"judge overall={card.overall}",
+            tenant=tenant,
+            request_id=request_id,
+            agent_id=(agents or [""])[0],
+            query=query,
+            answer=answer,
+            judge=card.to_dict(),
+            reason=card.repair_hint or f"judge overall={card.overall}",
         )
     except Exception:  # quality sampling must never affect the user's request
         log.exception("quality judge failed for %s", request_id)
@@ -168,12 +173,18 @@ def apply_repair(item_id: str, *, tenant: str, actor: str, runner: Any = None, t
         raise PermissionError("only Lab agents are repaired; built-in agents are never patched automatically")
     judge = item["judge"]
     jc = JudgeCard(
-        overall=int(judge.get("overall", 0)), grounded=bool(judge.get("grounded")), complete=bool(judge.get("complete")),
-        safe=bool(judge.get("safe", True)), failure_class=str(judge.get("failure_class", "none")), repair_hint=str(judge.get("repair_hint", "")),
+        overall=int(judge.get("overall", 0)),
+        grounded=bool(judge.get("grounded")),
+        complete=bool(judge.get("complete")),
+        safe=bool(judge.get("safe", True)),
+        failure_class=str(judge.get("failure_class", "none")),
+        repair_hint=str(judge.get("repair_hint", "")),
     )
     ctx = new_context(user=actor)
     ctx.extra.update({"mode": "product", "tenant": tenant})
-    patch = repair_fn or (lambda: run_repair(ctx, card, failing_trace=trace_digest(item["request_id"]), judge=jc, oracle_diff=item["reason"], actor=actor))
+    patch = repair_fn or (
+        lambda: run_repair(ctx, card, failing_trace=trace_digest(item["request_id"]), judge=jc, oracle_diff=item["reason"], actor=actor)
+    )
     outcome = guarded_repair(card.id, patch, runner=runner, tools=tools, actor=actor)
     decide(item_id, tenant=tenant, status="resolved" if outcome["accepted"] else "dismissed", actor=actor)
     return outcome

@@ -1,8 +1,15 @@
 """OrionHarness control plane."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from harness.config import Settings, get_settings
 
-__all__ = ["Settings", "get_settings", "coordinate", "coordinate_stream"]
+if TYPE_CHECKING:  # the planner is imported lazily at run time; this keeps type checkers aware of the names
+    from harness.planner import OrchestrationResult, coordinate, coordinate_stream
+
+__all__ = ["OrchestrationResult", "Settings", "coordinate", "coordinate_stream", "get_settings"]
 
 
 def __getattr__(name: str):

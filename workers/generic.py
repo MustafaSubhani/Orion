@@ -9,8 +9,8 @@ from harness.context import RequestContext, is_product
 from harness.errors import HarnessError, SandboxError
 from harness.packs import registry as pack_registry
 from harness.tool_registry import rebind_verb
-from harness.types import AgentCard, SpanKind, WorkerResult
 from harness.trace import get_tracer
+from harness.types import AgentCard, SpanKind, WorkerResult
 
 
 def run_worker(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:

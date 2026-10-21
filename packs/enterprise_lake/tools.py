@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from harness.context import RequestContext
 from harness.errors import SchemaInvalidError
-from harness.types import SideEffect, ToolManifest
+from harness.types import ToolManifest
 from packs.enterprise_lake.policy import ALLOWED_ENTITIES, SALARY_COLUMNS, entities_join_legal
 
 LAB_LEGAL_TOOLS = frozenset(
@@ -740,7 +740,7 @@ def _handle_workforce_slice(args: dict[str, Any], ctx: RequestContext) -> dict:
             "value": value,
             "preview": f"{label}={value}\nmatch_count={count} (headcount, not the average)\nDo not report match_count as {column}.",
         }
-    if args.get("count_only") in {True, "true", "True", 1, "1"}:
+    if args.get("count_only") in {True, "true", "True", "1"}:
         return {
             "table": "hr",
             "entity": table_entity("hr"),
@@ -805,7 +805,7 @@ def _handle_top_n(args: dict[str, Any], ctx: RequestContext) -> dict:
     _require_column(df, column)
     series = pd.to_numeric(df[column], errors="coerce")
     work = df.assign(_sort=series).dropna(subset=["_sort"])
-    work = work.sort_values("_sort", ascending=args.get("ascending") in {True, "true", "True", 1, "1"})
+    work = work.sort_values("_sort", ascending=args.get("ascending") in {True, "true", "True", "1"})
     head = work.drop(columns=["_sort"]).head(n)
     records = json.loads(head.to_json(orient="records", date_format="iso"))
     return {

@@ -14,7 +14,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 #: Environment the sandboxed child is allowed to see. Nothing else is inherited, so no secrets.
 _ENV_ALLOWLIST = ("SYSTEMROOT", "SystemDrive", "PATHEXT", "TEMP", "TMP", "LANG", "LC_ALL")

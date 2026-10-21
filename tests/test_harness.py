@@ -193,6 +193,7 @@ class SqlSpecTests(unittest.TestCase):
     def test_groupby_count(self) -> None:
         try:
             import pandas as pd
+
             from sandbox.exec_sandbox import execute_sql_spec
         except ImportError:
             self.skipTest("pandas is not installed in this interpreter")
@@ -219,6 +220,7 @@ class SqlSpecTests(unittest.TestCase):
     def test_sql_spec_rejects_injected_column(self) -> None:
         try:
             import pandas as pd
+
             from sandbox.exec_sandbox import execute_sql_spec
         except ImportError:
             self.skipTest("pandas is not installed in this interpreter")
@@ -232,6 +234,7 @@ class SqlSpecTests(unittest.TestCase):
     def test_unknown_column_is_schema_error(self) -> None:
         try:
             import pandas as pd
+
             from sandbox.exec_sandbox import execute_sql_spec
         except ImportError:
             self.skipTest("pandas is not installed in this interpreter")
@@ -664,6 +667,7 @@ class ContextEngineTests(unittest.TestCase):
 
     def test_window_for_model_hints(self) -> None:
         import os
+
         from harness.context_engine import window_for
 
         with patch.dict(os.environ, {"ORION_CONTEXT_WINDOW": ""}, clear=False):
@@ -675,6 +679,7 @@ class ContextEngineTests(unittest.TestCase):
 
     def test_stubs_large_tool_into_vault(self) -> None:
         import re
+
         from harness.context_engine import pack_for_model
         from harness.session import SessionStore
 

@@ -13,7 +13,6 @@ from unittest.mock import patch
 from harness import settings_store as ss
 from harness import summarizer, threads
 from harness.context import new_context
-from harness.errors import PolicyDeniedError, SchemaInvalidError
 from harness.skills import Skill, SkillStore, skill_from_markdown
 from harness.tool_registry import ToolRegistry
 from tests.apitest import ApiTestCase, FakeGateway, fake_stream, installed_runtime

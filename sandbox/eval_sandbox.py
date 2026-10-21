@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Optional
+from typing import Any
 
 from harness.context import RequestContext
 from harness.gateway import LLMGateway
-from harness.types import JudgeCard, SpanKind
 from harness.trace import get_tracer
+from harness.types import JudgeCard, SpanKind
 
 
 def run_oracle(task: dict[str, Any], answer: str) -> dict[str, Any]:

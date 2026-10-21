@@ -96,6 +96,14 @@ def preprocess(text: str, user: Optional[str] = None) -> PreprocessResult:
         return PreprocessResult(False, f"Pre-processing error (fail-safe block): {exc}", "")
 
 
+def redact_pii(text: str) -> str:
+    """Mask emails, phone numbers and token-like strings. Used for outgoing queries and on-disk traces."""
+    clean = text
+    for pattern, replacement in _PII:
+        clean = pattern.sub(replacement, clean)
+    return clean
+
+
 def postprocess_output(text: str) -> tuple[str, list[str]]:
     flags: list[str] = []
     lower = text.lower()
