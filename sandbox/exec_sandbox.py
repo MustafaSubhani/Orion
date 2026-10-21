@@ -12,8 +12,6 @@ import hashlib
 import json
 import operator
 import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Optional
 
@@ -168,32 +166,40 @@ def result_payload(result: pd.DataFrame, *, table: str, entity: str) -> dict[str
     }
 
 
-def run_generated_agent(module_path: Path, task: str, timeout_s: float = 30.0) -> str:
-    """Run generated agent.py in a subprocess with a stripped environment."""
+def run_generated_agent(
+    module_path: Path,
+    task: str,
+    timeout_s: float = 30.0,
+    *,
+    memory_mb: Optional[int] = None,
+    cpu_s: Optional[float] = None,
+) -> str:
+    """Run generated agent.py in a subprocess with OS-enforced limits, a minimal environment and no network.
+
+    Limits default to the admin settings (`sandbox.memory_mb`, `sandbox.cpu_s`, `sandbox.wall_s`).
+    The wall clock is the smaller of `timeout_s` and `sandbox.wall_s`.
+    """
+    from harness.settings_store import effective
+    from sandbox.limits import minimal_env, python_executable, run_limited
+
     gate = static_gate(module_path)
     if not gate.ok:
         raise SandboxError(f"static gate failed: {gate.reason}")
     runner = Path(__file__).with_name("worker_loop.py")
-    import os
-
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if not any(s in key.upper() for s in ("KEY", "TOKEN", "SECRET", "PASSWORD"))
-    }
-    env["ORION_SANDBOX"] = "1"
-    env["PYTHONPATH"] = str(PROJECT_ROOT)
+    wall = min(float(timeout_s), float(effective("sandbox.wall_s")))
     try:
-        proc = subprocess.run(
-            [sys.executable, str(runner), str(module_path), task],
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-            env=env,
+        code, out, err, timed_out = run_limited(
+            [python_executable(), str(runner), str(module_path), task],
+            env=minimal_env(PROJECT_ROOT),
             cwd=str(PROJECT_ROOT),
+            memory_mb=int(memory_mb or effective("sandbox.memory_mb")),
+            cpu_s=float(cpu_s or effective("sandbox.cpu_s")),
+            wall_s=wall,
         )
-    except subprocess.TimeoutExpired as exc:
-        raise SandboxError(f"generated agent timed out after {timeout_s}s") from exc
-    if proc.returncode != 0:
-        raise SandboxError("generated agent crashed", details=(proc.stderr or proc.stdout)[:800])
-    return (proc.stdout or "").strip()
+    except RuntimeError as exc:
+        raise SandboxError(str(exc)) from exc
+    if timed_out:
+        raise SandboxError(f"generated agent timed out after {wall:g}s")
+    if code != 0:
+        raise SandboxError("generated agent crashed", details=(err or out)[:800])
+    return (out or "").strip()

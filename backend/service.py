@@ -11,7 +11,7 @@ from typing import Iterator, Optional
 
 from backend.deps import Identity
 from backend.errors import ApiError
-from harness import guard, summarizer, threads
+from harness import guard, quality, summarizer, threads
 from harness.agent_registry import get_registry
 from harness.permissions import preprocess
 from harness.planner import OrchestrationResult, coordinate_stream
@@ -106,6 +106,10 @@ def stream(
         if update.get("type") == "final" and active_thread:
             record_turn(identity, active_thread, message, str(update.get("response", "")), str(update.get("request_id", "")))
             update = {**update, "thread_id": active_thread}
+            quality.maybe_sample(
+                tenant=identity.tenant, request_id=str(update.get("request_id", "")), query=message,
+                answer=str(update.get("response", "")), agents=list(update.get("agents_used") or []),
+            )
         elif update.get("type") == "init" and active_thread:
             update = {**update, "thread_id": active_thread}
         yield update

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 
 from backend import database as db
 from backend.deps import Identity, require_admin
@@ -36,6 +37,35 @@ def reset_setting(key: str, admin: Identity = Depends(require_admin)) -> dict[st
     except settings_store.SettingsError as exc:
         raise ApiError(404, "invalid_setting", str(exc)) from exc
     return next(r for r in settings_store.describe(admin.tenant) if r["key"] == key)
+
+
+class QueueDecision(BaseModel):
+    action: str = Field(pattern="^(dismiss|repair)$")
+
+
+@router.get("/quality/queue")
+def quality_queue(status: Optional[str] = Query(default="pending", pattern="^(pending|dismissed|resolved)$"), admin: Identity = Depends(require_admin)) -> list[dict[str, Any]]:
+    """Answers the background judge found weak. Review them; nothing is patched without a decision here."""
+    from harness import quality
+
+    return quality.list_queue(tenant=admin.tenant, status=status)
+
+
+@router.post("/quality/queue/{item_id}")
+def quality_decide(item_id: str, body: QueueDecision, admin: Identity = Depends(require_admin)) -> dict[str, Any]:
+    """`dismiss` closes the item. `repair` asks the Repair Agent to patch the Lab agent, behind the contract guard."""
+    from harness import quality
+
+    if body.action == "dismiss":
+        if not quality.decide(item_id, tenant=admin.tenant, status="dismissed", actor=admin.username):
+            raise ApiError(404, "not_found", "Unknown or already decided queue item")
+        return {"id": item_id, "status": "dismissed"}
+    try:
+        return quality.apply_repair(item_id, tenant=admin.tenant, actor=admin.username)
+    except LookupError as exc:
+        raise ApiError(404, "not_found", str(exc)) from exc
+    except PermissionError as exc:
+        raise ApiError(409, "not_repairable", str(exc)) from exc
 
 
 @router.get("/mcp")

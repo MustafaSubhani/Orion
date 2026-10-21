@@ -42,6 +42,9 @@ class FakeGateway:
     def __init__(self, replies=None, error=None):
         from harness.types import LLMResponse
 
+        from harness.config import get_settings
+
+        self.settings = get_settings()
         self._make = lambda text: LLMResponse(text=text, model="fake", tokens_in=10, tokens_out=5)
         self.replies = list(replies or [])
         self.error = error
@@ -55,8 +58,8 @@ class FakeGateway:
         return self._make(self.replies.pop(0) if self.replies else "ok")
 
 
-def installed_runtime(gateway):
-    """Context manager: make `get_runtime()` return a runtime with this gateway, then restore it."""
+def installed_runtime(gateway, *, agents=None, tools=None, healer=None):
+    """Context manager: make `get_runtime()` return a runtime with these parts, then restore it."""
     from contextlib import contextmanager
 
     from harness import context as ctxmod
@@ -64,7 +67,7 @@ def installed_runtime(gateway):
     @contextmanager
     def cm():
         previous = ctxmod._RUNTIME
-        ctxmod.set_runtime(ctxmod.Runtime(gateway=gateway, tools=None, agents=None, tracer=None, healer=None))
+        ctxmod.set_runtime(ctxmod.Runtime(gateway=gateway, tools=tools, agents=agents, tracer=None, healer=healer))
         try:
             yield gateway
         finally:

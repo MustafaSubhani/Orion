@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from harness.config import LAB_GENERATED_DIR, OUTPUTS_DIR, ensure_dirs
 from harness.errors import UnknownAgentError
@@ -135,6 +135,29 @@ class AgentRegistry:
         self._notify(agent_id, "delete")
         return True
 
+    def set_metadata(self, agent_id: str, key: str, value: Any) -> bool:
+        """Attach a small record (such as the latest evaluation) to a custom card without bumping its version."""
+        with self._lock:
+            card = self.get(agent_id)
+            if card is None or card.is_builtin:
+                return False
+            card.metadata = {**(card.metadata or {}), key: value}
+            self._save_custom()
+        self._notify(agent_id, "metadata")
+        return True
+
+    def update(self, card: AgentCard, *, actor: str = "system", note: str = "update") -> AgentCard:
+        """Replace a custom card with an edited copy and record a new version (used by guarded repair)."""
+        with self._lock:
+            current = self.get(card.id)
+            if current is None or current.is_builtin:
+                raise ValueError(f"cannot update '{card.id}'")
+            self._cards[card.id] = card
+            self._save_custom()
+            self.versions.save(card.id, card.to_dict(), actor, change_note=note)
+        self._notify(card.id, "update")
+        return card
+
     def rollback(self, agent_id: str, version: int, *, actor: str = "system") -> bool:
         """Restore a custom agent to a stored snapshot. Writes a new version rather than rewriting history."""
         with self._lock:
@@ -212,6 +235,10 @@ def predeploy_check(agent_id: str) -> dict:
             "detail": ",".join(card.tools) if card.tools else "no tools",
         }
     )
+    from lab.evaluate import promotion_status
+
+    ok, detail = promotion_status(card)
+    checks.append({"name": "evaluation", "passed": ok, "detail": detail})
     return {"passed": all(c["passed"] for c in checks), "checks": checks}
 
 

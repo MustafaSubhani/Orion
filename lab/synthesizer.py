@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -130,6 +131,8 @@ class LabAgent:
             return self._deploy(parts[1])
         if lower.startswith("test "):
             return self._test(text.split(" ", 1)[1].strip())
+        if lower.startswith("evaluate "):
+            return self._evaluate(text.split(" ", 1)[1].strip(), user)
         return self._help()
 
     def process_message_streaming(self, user: str, message: str):
@@ -166,7 +169,7 @@ class LabAgent:
                 f"- tools: {', '.join(card.tools)}\n"
                 f"- status: {card.status.value}\n"
                 f"- files: `lab/generated/{card.id}/`\n\n"
-                f"Run `test {card.id}` then `deploy {card.id}` to promote it. "
+                f"Run `evaluate {card.id}` then `deploy {card.id}` to promote it. "
                 f"It will not be routed in live chat until ACTIVE/DEPLOYED."
             )
         return questions().get(s.step or Step.NAME, self._help())
@@ -203,6 +206,13 @@ class LabAgent:
         ok = get_registry().delete(agent_id)
         return f"Deleted `{agent_id}`." if ok else f"Cannot delete `{agent_id}`."
 
+    def _evaluate(self, agent_id: str, user: str) -> str:
+        from lab.evaluate import evaluate, summarize
+
+        if not get_agent(agent_id):
+            return f"Unknown `{agent_id}`."
+        return summarize(evaluate(agent_id, actor=user))
+
     def _deploy(self, agent_id: str) -> str:
         check = predeploy_check(agent_id)
         if not check["passed"]:
@@ -231,6 +241,7 @@ class LabAgent:
             "| `list` | Show synthesized agents |\n"
             "| `use <id>` | Chat with that agent |\n"
             "| `test <id>` | Static gate / smoke |\n"
+            "| `evaluate <id>` | Run contract tests on live data (required before deploy) |\n"
             "| `deploy <id>` | DRAFT → DEPLOYED |\n"
             "| `delete <id>` | Remove |\n"
             "| `cancel` | Reset |\n"
@@ -252,11 +263,11 @@ def synthesize(answers: dict[str, str], created_by: str = "lab") -> AgentCard:
     ensure_dirs()
     name = answers.get("name") or "untitled"
     slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "agent"
-    agent_id = f"lab_{slug}_{int(time.time()) % 100000}"
+    agent_id = f"lab_{slug}_{uuid.uuid4().hex[:6]}"
     from harness.packs import registry as pack_registry
 
     packs = pack_registry()
-    entities = _parse_list(answers.get("entities") or packs.default_entity(), legal=packs.lab_entities())
+    entities = _parse_list(answers.get("entities") or "", legal=packs.lab_entities()) or [packs.default_entity()]
     LAB_LEGAL_TOOLS = packs.lab_tools()
 
     tools_raw = (answers.get("tools") or "default").strip().lower()
@@ -278,6 +289,11 @@ def synthesize(answers: dict[str, str], created_by: str = "lab") -> AgentCard:
             "sql_spec",
             "schema_lookup",
         ]
+        # `mcp:<server>` (or `mcp:*`) grants every tool of an external MCP server, resolved at run time.
+        for token in re.split(r"[,;]+", answers.get("tools") or ""):
+            token = token.strip()
+            if token.startswith("mcp:") and token not in tools:
+                tools.append(token)
     if "session_get" not in tools:
         tools.append("session_get")
     if "search_tools" not in tools:
@@ -296,9 +312,16 @@ def synthesize(answers: dict[str, str], created_by: str = "lab") -> AgentCard:
     )
     workdir = LAB_GENERATED_DIR / agent_id
     workdir.mkdir(parents=True, exist_ok=True)
-    code = TEMPLATE_AGENT.format(role=prompt, entities=entities, tools=tools)
-    module_path = workdir / "agent.py"
-    module_path.write_text(code, encoding="utf-8")
+    # Default: a card agent. It runs on the shared ReAct worker with its declared tools, so it can really
+    # answer. `mode=code` writes a sandboxed Python module instead (a stub the author must fill in).
+    mode = (answers.get("mode") or "card").strip().lower()
+    module_path = None
+    if mode == "code":
+        module_path = workdir / "agent.py"
+        module_path.write_text(TEMPLATE_AGENT.format(role=prompt, entities=entities, tools=tools), encoding="utf-8")
+        gate = static_gate(module_path)
+        if not gate.ok:
+            raise ValueError(f"synthesized agent failed static gate: {gate.reason}")
     card = AgentCard(
         id=agent_id,
         name=name,
@@ -312,12 +335,11 @@ def synthesize(answers: dict[str, str], created_by: str = "lab") -> AgentCard:
         is_builtin=False,
         created_by=created_by,
         created_at=datetime.now(timezone.utc).isoformat(),
-        module_path=str(module_path),
+        module_path=str(module_path) if module_path else None,
         latency_class=LatencyClass.SLOW,
-        metadata={"source": "lab_synthesizer"},
+        metadata={"source": "lab_synthesizer", "mode": mode},
     )
-    (workdir / "card.json").write_text(json.dumps(card.to_dict(), indent=2), encoding="utf-8")
-    gate = static_gate(module_path)
-    if not gate.ok:
-        raise ValueError(f"synthesized agent failed static gate: {gate.reason}")
+    from harness.fsutil import atomic_write
+
+    atomic_write(workdir / "card.json", json.dumps(card.to_dict(), indent=2))
     return get_registry().register(card, actor=created_by)

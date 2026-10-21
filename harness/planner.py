@@ -455,7 +455,8 @@ def _execute_with_heal(task: Task, query: str, ctx: RequestContext) -> Task:
                 extra={"task": task.id, "class": fc.value, "action": decision.action.value, "cycle": cycle},
             ):
                 if decision.action == HealAction.RE_ROUTE:
-                    alts = [c.id for c in shortlist(ctx, query, k=3) if c.id != forced_agent]
+                    # Rank every routable agent, so the best-matching card that was NOT chosen is always considered.
+                    alts = [c.id for c in shortlist(ctx, query, k=64) if c.id != forced_agent]
                     if alts:
                         forced_agent = alts[0]
                         task.agent = forced_agent

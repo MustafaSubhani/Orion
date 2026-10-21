@@ -65,22 +65,20 @@ class NoHardcodingTests(unittest.TestCase):
         self.assertEqual(hits, [], "dataset-specific text found in core:\n" + "\n".join(hits))
 
     def test_core_never_evals_or_execs_outside_the_sandbox(self) -> None:
+        """Real `eval(...)` / `exec(...)` calls only (found with the AST, so blocked-token strings do not count)."""
+        import ast
+
         hits: list[str] = []
-        pattern = re.compile(r"(?<![\w.])(eval|exec)\(")
-        for folder in ("harness", "workers", "backend", "kb", "lab", "repair"):
+        for folder in ("harness", "workers", "backend", "kb", "lab", "repair", "packs"):
             for path in sorted((ROOT / folder).rglob("*.py")):
                 rel = path.relative_to(ROOT).as_posix()
                 if "__pycache__" in rel or "/generated/" in rel:
                     continue
-                for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                    code = line.split("#", 1)[0]
-                    if "_BANNED" in code:
-                        continue  # the skill ban-list names eval( as a forbidden token
-                    if pattern.search(code) and not code.strip().startswith(("r\"", "'", '"')):
-                        hits.append(f"{rel}:{number}: {line.strip()[:100]}")
-        # permissions.py lists "exec(" only as a blocked pattern; harness/sandbox.py is the legacy AST gate.
-        hits = [h for h in hits if "harness/permissions.py" not in h and "harness/sandbox.py" not in h]
-        self.assertEqual(hits, [], "eval/exec outside sandbox/:\n" + "\n".join(hits))
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {"eval", "exec"}:
+                        hits.append(f"{rel}:{node.lineno}")
+        self.assertEqual(hits, [], "eval/exec call outside sandbox/: " + ", ".join(hits))
 
 
 class PackRegistryTests(unittest.TestCase):

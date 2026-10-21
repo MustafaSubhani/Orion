@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from typing import Optional
 
 from harness.context import RequestContext
@@ -20,8 +21,33 @@ def lexical_score(query: str, card: AgentCard) -> float:
     return len(q & blob) / max(1, len(q))
 
 
+_VECTORS: dict[str, tuple[str, list[float]]] = {}
+_VECTOR_LOCK = threading.Lock()
+
+
+def invalidate_vector(agent_id: str, _event: str = "") -> None:
+    """Drop a card's cached embedding. Registered as a registry listener, so edits take effect at once."""
+    with _VECTOR_LOCK:
+        _VECTORS.pop(agent_id, None)
+
+
+def _card_vector(card: AgentCard, embed) -> list[float]:
+    """Embedding of the card's intent, cached until the intent changes or the registry reports a change."""
+    with _VECTOR_LOCK:
+        hit = _VECTORS.get(card.id)
+        if hit and hit[0] == card.intent:
+            return hit[1]
+    vector = embed(card.intent)
+    with _VECTOR_LOCK:
+        _VECTORS[card.id] = (card.intent, vector)
+    return vector
+
+
 def shortlist(ctx: RequestContext, query: str, k: int = 3) -> list[AgentCard]:
     agents = ctx.runtime.agents
+    if hasattr(agents, "add_listener") and not getattr(agents, "_router_hooked", False):
+        agents.add_listener(invalidate_vector)
+        agents._router_hooked = True  # an attribute, not id(): ids are reused after garbage collection
     pool = [c for c in agents.active() if c.id != "orchestrator"]
     if ctx.allowed_agents:
         allowed = set(ctx.allowed_agents)
@@ -47,7 +73,7 @@ def shortlist(ctx: RequestContext, query: str, k: int = 3) -> list[AgentCard]:
 
         q_vec = get_embedding(query)
         for card in pool:
-            c_vec = get_embedding(card.intent)
+            c_vec = _card_vector(card, get_embedding)
             score = _cosine(q_vec, c_vec)
             scored.append((score, card))
     except Exception:

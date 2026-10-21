@@ -65,6 +65,7 @@ SCHEMA: dict[str, Setting] = {
     "memory.summary_max_tokens": Setting(int, 400, "Token cap for a generated summary.", minimum=64, maximum=4000),
     "memory.curate_every": Setting(int, 20, "Run the skill curator after this many skill saves.", minimum=1, maximum=1000),
     "context.summarize": Setting(str, "abstractive", "How old turns are compacted.", choices=("off", "extractive", "abstractive")),
+    "quality.sample_rate": Setting(float, 0.0, "Fraction of live answers judged in the background (0 disables).", minimum=0.0, maximum=1.0),
     "lab.auto_eval": Setting(bool, True, "Evaluate Lab agents automatically before promotion."),
     "lab.min_score": Setting(float, 0.8, "Minimum probe score to promote a Lab agent.", minimum=0.0, maximum=1.0),
     "parallel.max_workers": Setting(int, 4, "Concurrent agents per wave.", minimum=1, maximum=32),

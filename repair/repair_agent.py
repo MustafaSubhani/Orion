@@ -9,17 +9,13 @@ from pathlib import Path
 from harness.config import LAB_GENERATED_DIR, PROJECT_ROOT
 from harness.context import RequestContext
 from harness.types import AgentCard, JudgeCard
-from harness.versions import VersionStore
 from sandbox.gate import static_gate
 
-ALLOW_PREFIXES = (
-    PROJECT_ROOT / "lab" / "generated",
-    PROJECT_ROOT / "workers",
-)
-DENY_PREFIXES = (
-    PROJECT_ROOT / "bench",
-    PROJECT_ROOT / "harness",
-    PROJECT_ROOT / "sandbox",
+# Only generated agents are patchable. `workers/` is the shared ReAct kernel, so it is never a repair target.
+ALLOW_PREFIXES = (PROJECT_ROOT / "lab" / "generated",)
+DENY_PREFIXES = tuple(
+    PROJECT_ROOT / name
+    for name in ("bench", "harness", "sandbox", "workers", "backend", "packs", "kb", "retrieval", "repair", "tests", "data")
 )
 
 
@@ -104,8 +100,11 @@ Current file:
         if not gate.ok:
             tmp.unlink(missing_ok=True)
             return PatchProposal(card.id, str(target), new_text, note, False, gate.reason)
-    target.write_text(new_text, encoding="utf-8")
+    from harness.agent_registry import get_registry
+    from harness.fsutil import atomic_write
+
+    atomic_write(target, new_text)
     tmp.unlink(missing_ok=True)
     card.version += 1
-    VersionStore().save(card.id, card.to_dict(), actor, change_note=note)
+    get_registry().update(card, actor=actor, note=note)  # one version store, shared with the live registry
     return PatchProposal(card.id, str(target), new_text, note, True, "applied")
