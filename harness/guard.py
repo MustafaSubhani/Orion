@@ -28,7 +28,7 @@ from harness.types import ToolResult
 log = logging.getLogger("orion.guard")
 
 UNTRUSTED_VERBS = frozenset({"web_search", "http_fetch", "kb_search", "kb_query"})
-UNTRUSTED_PREFIXES = ("mcp.",)
+UNTRUSTED_PREFIXES = ("mcp__",)  # provider tool names cannot contain dots, so MCP verbs are mcp__server__tool
 POSITIVE_LABELS = {"injection", "malicious", "jailbreak", "unsafe", "label_1", "1", "prompt_injection"}
 WINDOW_TOKENS = 480
 MAX_WINDOWS = 8

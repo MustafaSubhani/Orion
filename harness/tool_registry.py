@@ -73,6 +73,10 @@ class ToolRegistry:
         self._manifests[manifest.verb] = manifest
         self._handlers[manifest.verb] = handler
 
+    def unregister(self, verb: str) -> bool:
+        self._handlers.pop(verb, None)
+        return self._manifests.pop(verb, None) is not None
+
     def wrap(self, verb: str, wrapper: Callable[[Handler], Handler]) -> bool:
         """Replace a registered handler with `wrapper(handler)`. Returns False if the verb is unknown."""
         handler = self._handlers.get(verb)
@@ -127,6 +131,10 @@ class ToolRegistry:
         if manifest is None:
             raise UnknownToolError(f"Unknown tool '{verb}'. Use search_tools.")
         assert_tool_allowed(ctx.role, verb)
+        if manifest.side_effect == SideEffect.WRITE:
+            blocked = self._write_gate(verb, arguments, ctx)
+            if blocked is not None:
+                return blocked
         settings = get_settings()
         circuit_key = f"{ctx.request_id}:{verb}"
         with self._circuit_lock:
@@ -208,6 +216,41 @@ class ToolRegistry:
                     error=str(exc)[:400],
                     latency_ms=(time.perf_counter() - t0) * 1000,
                 )
+
+    @staticmethod
+    def _write_gate(verb: str, arguments: dict[str, Any], ctx: RequestContext) -> Optional[ToolResult]:
+        """Policy for tools that change something. Returns a blocking result, or None to proceed.
+
+        Eval mode and limited roles can never write. In live chat `tools.write_policy` decides:
+        `deny`, `allow`, or `confirm` (a single-use administrator approval for these exact arguments).
+        """
+        from harness import approvals
+        from harness.settings_store import effective
+
+        def denied(message: str, error_class: str = "PolicyDenied") -> ToolResult:
+            return ToolResult(ok=False, verb=verb, error_class=error_class, error=message)
+
+        if not is_product(ctx):
+            return denied(f"'{verb}' changes data and is disabled outside live chat")
+        if ctx.role == "limited":
+            return denied(f"Role 'limited' cannot use write tool '{verb}'")
+        policy = str(effective("tools.write_policy"))
+        if policy == "deny":
+            return denied(f"Write tools are disabled by policy ('{verb}')")
+        if policy == "allow":
+            return None
+        tenant = str((ctx.extra or {}).get("tenant") or "default")
+        if approvals.consume_grant(tenant=tenant, user=ctx.user, verb=verb, args=arguments):
+            return None
+        record = approvals.request(tenant=tenant, user=ctx.user, request_id=ctx.request_id, verb=verb, args=arguments)
+        pending = (ctx.extra or {}).get("approvals")
+        if isinstance(pending, list) and not any(p.get("id") == record["id"] for p in pending):
+            pending.append({"id": record["id"], "verb": verb, "args": record.get("args_preview", "")})
+        return denied(
+            f"Approval {record['id']} is required before '{verb}' can run. "
+            "An administrator can approve it; then repeat the request.",
+            "ApprovalRequired",
+        )
 
     def _register_builtins(self) -> None:
         self.register(

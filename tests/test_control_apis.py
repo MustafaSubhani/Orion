@@ -357,7 +357,7 @@ class McpRouteTests(ApiTestCase):
         with patch("backend.routes.mcp.handle_mcp", return_value={"jsonrpc": "2.0", "id": 1, "result": {}}) as spy:
             res = self.client.post("/mcp", headers=headers, json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(spy.call_args.kwargs, {"user": "mcpuser", "role": "limited"})
+        self.assertEqual(spy.call_args.kwargs, {"user": "mcpuser", "role": "limited", "tenant": "default"})
 
 
 if __name__ == "__main__":

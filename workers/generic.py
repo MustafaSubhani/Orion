@@ -47,8 +47,13 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
         for extra in ("kb_list", "kb_search", "kb_query"):
             if extra not in tool_names:
                 tool_names.append(extra)
-    from harness import web_search
+    from harness import mcp_client, web_search
 
+    # `mcp:<server>` wildcards resolve to the server's tools in live chat and vanish in eval mode.
+    if is_product(ctx):
+        tool_names = mcp_client.expand_tool_names(tool_names, card.id)
+    else:
+        tool_names = [n for n in tool_names if not n.startswith("mcp:")]
     web_enabled = web_search.is_enabled(ctx)
     if web_enabled and "web_search" not in tool_names:
         tool_names.append("web_search")

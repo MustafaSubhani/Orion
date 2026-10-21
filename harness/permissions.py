@@ -116,7 +116,7 @@ def postprocess_output(text: str) -> tuple[str, list[str]]:
 def assert_tool_allowed(role: Optional[str], verb: str) -> None:
     if role is None or role in {"super_user", "admin"}:
         return
-    if verb in PLATFORM_TOOLS or verb.startswith("mcp."):
+    if verb in PLATFORM_TOOLS or verb.startswith("mcp__"):
         return  # gated by side effect in the registry, not by a pack list
     from harness.packs import registry
 

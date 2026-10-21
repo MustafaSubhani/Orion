@@ -1,0 +1,23 @@
+{
+  "servers": [
+    {
+      "name": "brave",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": { "BRAVE_API_KEY": "${BRAVE_API_KEY}" },
+      "timeout_s": 30,
+      "default_side_effect": "read",
+      "search_tool": "brave_web_search",
+      "agents": []
+    },
+    {
+      "name": "internal",
+      "transport": "streamable_http",
+      "url": "https://mcp.example.com/mcp",
+      "headers": { "Authorization": "Bearer ${INTERNAL_MCP_TOKEN}" },
+      "allow": ["lookup_ticket"],
+      "agents": ["*"]
+    }
+  ]
+}

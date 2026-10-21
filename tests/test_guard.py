@@ -197,7 +197,7 @@ class ToolOutputTests(GuardCase):
         self.assertIn("SECRET-INSTRUCTION", out.preview)
 
     def test_mcp_and_kb_and_fetch_tools_are_untrusted(self) -> None:
-        for verb in ("mcp.server.tool", "kb_search", "kb_query", "http_fetch", "web_search"):
+        for verb in ("mcp__server__tool", "kb_search", "kb_query", "http_fetch", "web_search"):
             self.assertTrue(guard.is_untrusted(verb), verb)
         for verb in ("sql_spec", "retrieve", "schema_lookup"):
             self.assertFalse(guard.is_untrusted(verb), verb)
@@ -206,15 +206,15 @@ class ToolOutputTests(GuardCase):
         self.enable()
         tools = ToolRegistry()
         tools.register(
-            ToolManifest(id="x", verb="mcp.fake.read", resource_type="mcp", description="d", schema={"type": "object"},
+            ToolManifest(id="x", verb="mcp__fake__read", resource_type="mcp", description="d", schema={"type": "object"},
                          side_effect=SideEffect.READ),
             lambda args, ctx: {"preview": POISON, "text": POISON},
         )
-        res = tools.call("mcp.fake.read", {}, self.product())
+        res = tools.call("mcp__fake__read", {}, self.product())
         self.assertTrue(res.ok)
         self.assertIn("withheld", res.preview)
         self.assertNotIn("SECRET-INSTRUCTION", res.preview)
-        eval_res = tools.call("mcp.fake.read", {}, new_context())
+        eval_res = tools.call("mcp__fake__read", {}, new_context())
         self.assertIn("SECRET-INSTRUCTION", eval_res.preview)  # eval mode bypasses the guard entirely
 
 

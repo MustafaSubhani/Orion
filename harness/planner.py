@@ -56,6 +56,7 @@ def coordinate_stream(
     faults.arm(ctx, inject)
     ctx.extra["kb_enabled"] = bool(kb_enabled)
     ctx.extra["mode"] = "product" if kb_enabled else "eval"
+    ctx.extra["approvals"] = []  # shared by forked contexts; tools append pending approvals here
     tracer = get_tracer()
     pre = preprocess(query, user=user)
     if not pre.approved:
@@ -134,6 +135,7 @@ def coordinate_stream(
 
     with tracer.span(ctx.request_id, SpanKind.GRAPH, "planner.dag", args={"nodes": list(graph.nodes)}):
         safety = 0
+        announced = 0
         while safety < 16 and not graph.all_terminal():
             safety += 1
             wave = graph.ready()
@@ -185,6 +187,9 @@ def coordinate_stream(
                 }
                 runnable.append(node)
             finished = _run_wave(runnable, clean, ctx) if runnable else []
+            for pending in ctx.extra["approvals"][announced:]:
+                yield {"type": "approval_required", "request_id": ctx.request_id, **pending}
+            announced = len(ctx.extra["approvals"])
             for node in finished:
                 yield {
                     "type": "task_complete",
@@ -254,6 +259,7 @@ def coordinate_stream(
         "graph": graph.to_dict(),
         "backtracks": graph.backtracks,
         "tokens_used": ctx.budget.tokens_used,
+        "approvals": list(ctx.extra["approvals"]),
     }
 
 

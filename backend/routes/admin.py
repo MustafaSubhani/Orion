@@ -38,6 +38,27 @@ def reset_setting(key: str, admin: Identity = Depends(require_admin)) -> dict[st
     return next(r for r in settings_store.describe(admin.tenant) if r["key"] == key)
 
 
+@router.get("/mcp")
+def mcp_status(_: Identity = Depends(require_admin)) -> dict[str, Any]:
+    """Configured MCP servers, their connection state and the tools they expose."""
+    from harness import mcp_client
+
+    info = mcp_client.bridge_status()
+    for server in mcp_client.bridge().servers():
+        row = next((s for s in info["servers"] if s["name"] == server.config.name), None)
+        if row is not None:
+            row["tool_names"] = [mcp_client.verb_name(server.config.name, t.name) for t in server.exposed_tools()]
+    return info
+
+
+@router.post("/mcp/reload")
+def mcp_reload(_: Identity = Depends(require_admin)) -> dict[str, Any]:
+    """Re-read config/mcp_servers.json, reconnect every server and refresh the registered tools."""
+    from harness import mcp_client
+
+    return mcp_client.connect_all()
+
+
 @router.get("/connectors")
 def list_connectors(_: Identity = Depends(require_admin)) -> list[dict[str, Any]]:
     from harness.connectors import registry

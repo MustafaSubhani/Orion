@@ -60,7 +60,7 @@ _HINTS = {
 }
 
 _TOOL_ERRORS = {"Timeout", "TimeoutError_", "ToolRuntime", "ToolRuntimeError", "SandboxError", "CircuitOpen"}
-_POLICY_ERRORS = {"PolicyDenied", "PolicyDeniedError"}
+_POLICY_ERRORS = {"PolicyDenied", "PolicyDeniedError", "ApprovalRequired"}  # waiting for a human is not retryable
 _ROUTING_ERRORS = {"RoutingError", "UnknownAgent", "UnknownAgentError"}
 _SCHEMA_ERRORS = {"SchemaInvalid", "SchemaInvalidError"}
 _RETRIEVAL_ERRORS = {"RetrievalMiss", "RetrievalMissError"}

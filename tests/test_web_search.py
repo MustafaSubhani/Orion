@@ -175,16 +175,19 @@ class BackendChoiceTests(WebCase):
         with patch("harness.web_search.get_settings", return_value=Settings(worker_provider="openai")):
             self.assertEqual(ws.choose_backend(), "ddg")
 
-    def test_mcp_backend_delegates_and_filters(self) -> None:
-        fake = types.ModuleType("harness.mcp_client")
-        fake.search = lambda server, query, limit: [{"title": "T", "url": "https://x.example/p", "snippet": "s"}]
-        with patch.dict(sys.modules, {"harness.mcp_client": fake}), patch("harness.web_search.registry_unused", create=True):
-            import harness
-
-            with patch.object(harness, "mcp_client", fake, create=True):
-                out = ws.search("q", 3, backend="mcp:brave")
-        self.assertEqual(out["results"][0]["url"], "https://x.example/p")
-        self.assertEqual(out["backend"], "mcp:brave")
+    def test_mcp_backend_delegates_and_applies_domain_filters(self) -> None:
+        rows = [
+            {"title": "T", "url": "https://x.example/p", "snippet": "s"},
+            {"title": "U", "url": "https://other.net/q", "snippet": "t"},
+        ]
+        with patch("harness.mcp_client.search", return_value=rows) as spy:
+            out = ws.search("q", 3, backend="mcp:brave")
+            self.assertEqual(len(out["results"]), 2)
+            ss.set_value("web_search.allowed_domains", ["x.example"], "test")
+            filtered = ws.search("q", 3, backend="mcp:brave")
+        self.assertEqual(spy.call_args.args[0], "brave")
+        self.assertEqual([r["url"] for r in filtered["results"]], ["https://x.example/p"])
+        self.assertEqual(filtered["backend"], "mcp:brave")
 
     def test_unknown_backend_is_a_schema_error(self) -> None:
         with self.assertRaises(SchemaInvalidError):
