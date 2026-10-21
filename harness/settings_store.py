@@ -57,6 +57,7 @@ SCHEMA: dict[str, Setting] = {
     "web_search.enabled": Setting(bool, False, "Expose the web_search tool to agents in live chat."),
     "web_search.backend": Setting(str, "auto", "auto, openai, ddg or mcp:<server>.", choices=("auto", "openai", "ddg"), prefixes=("mcp:",)),
     "web_search.max_results": Setting(int, 5, "Maximum search results returned.", minimum=1, maximum=10),
+    "web_search.allowed_domains": Setting(list, [], "Only return results from these domains (empty means any)."),
     "web_search.openai_model": Setting(str, "", "Model for OpenAI hosted search. Empty uses the worker model."),
     "mcp.enabled": Setting(bool, True, "Connect configured external MCP servers."),
     "memory.enabled": Setting(bool, True, "Keep conversation threads and per-user skills."),

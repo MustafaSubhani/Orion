@@ -31,8 +31,13 @@ class SnapshotParityTests(unittest.TestCase):
     def test_agent_cards_are_identical(self) -> None:
         self._same("cards")
 
+    PLATFORM_ADDITIONS = {"web_search"}  # core tools added after the snapshot; everything else must match
+
     def test_tool_manifests_are_identical(self) -> None:
-        self._same("manifests")
+        for name, manifest in self.old["manifests"].items():
+            self.assertEqual(manifest, self.new["manifests"].get(name), f"manifest {name} changed")
+        extra = set(self.new["manifests"]) - set(self.old["manifests"])
+        self.assertLessEqual(extra, self.PLATFORM_ADDITIONS, f"unexpected new tools: {extra - self.PLATFORM_ADDITIONS}")
 
     def test_tools_exposed_to_each_agent_are_identical(self) -> None:
         self._same("card_tools")

@@ -85,6 +85,8 @@ class Settings:
 
     mistral_api_key: str = ""
     mistral_api_url: str = "https://api.mistral.ai/v1/chat/completions"
+    openai_api_key: str = ""
+    openai_base_url: str = ""
     worker_provider: str = "mistral"  # mistral | openai_compat
     worker_base_url: str = ""
     worker_api_key: str = ""
@@ -130,15 +132,19 @@ def get_settings() -> Settings:
     judge_provider = os.getenv("ORION_JUDGE_PROVIDER", worker_provider).strip().lower()
     router_provider = os.getenv("ORION_ROUTER_PROVIDER", worker_provider).strip().lower()
     mistral_key = os.getenv("MISTRAL_API_KEY", "")
-    worker_key = os.getenv("ORION_WORKER_API_KEY", mistral_key)
+    openai_key = os.getenv("OPENAI_API_KEY", "")
+    worker_key = os.getenv("ORION_WORKER_API_KEY", openai_key if worker_provider == "openai" else mistral_key)
     if worker_provider == "openai_compat" and not worker_key:
         worker_key = "local"
-    judge_key = os.getenv("ORION_JUDGE_API_KEY", mistral_key if judge_provider == "mistral" else worker_key)
+    judge_default = {"mistral": mistral_key, "openai": openai_key}.get(judge_provider, worker_key)
+    judge_key = os.getenv("ORION_JUDGE_API_KEY", judge_default)
     if judge_provider == "openai_compat" and not judge_key:
         judge_key = "local"
     return Settings(
         mistral_api_key=mistral_key,
         mistral_api_url=os.getenv("MISTRAL_API_URL", "https://api.mistral.ai/v1/chat/completions"),
+        openai_api_key=openai_key,
+        openai_base_url=os.getenv("ORION_OPENAI_BASE_URL", ""),
         worker_provider=worker_provider,
         worker_base_url=os.getenv("ORION_WORKER_BASE_URL", ""),
         worker_api_key=worker_key,

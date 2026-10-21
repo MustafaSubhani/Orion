@@ -13,7 +13,7 @@ from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from harness import faults, metrics
+from harness import faults, guard, metrics
 from harness.config import GRAPHS_DIR, get_settings
 from harness.packs import registry as pack_registry
 from harness.context import RequestContext, is_product
@@ -165,10 +165,13 @@ class ToolRegistry:
                     truncated=truncated,
                     latency_ms=(time.perf_counter() - t0) * 1000,
                 )
+                result, verdict = guard.scan_tool_result(result, ctx)
                 span.result_hash = result.result_hash
                 extra = dict(span.extra or {})
-                extra["preview"] = (preview or "")[:500]
+                extra["preview"] = (result.preview or "")[:500]
                 extra["verb"] = verb
+                if verdict is not None and verdict.blocked:
+                    extra["guard_flag"] = verdict.reason
                 if rebound_from:
                     extra["rebound_from"] = rebound_from
                 span.extra = extra
@@ -395,11 +398,13 @@ class ToolRegistry:
             ),
             _handle_search_agents,
         )
+        from harness import web_search
         from kb.tools import register_kb_tools
 
         packs = pack_registry()
         packs.register_tools(self)
         register_kb_tools(self)
+        web_search.register(self)
         for verb, text in packs.tool_descriptions().items():
             manifest = self._manifests.get(verb)
             if manifest is not None:

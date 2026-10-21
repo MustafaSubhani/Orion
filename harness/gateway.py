@@ -50,6 +50,13 @@ class LLMGateway:
 
         if not api_key and provider == "mistral":
             raise ToolRuntimeError("MISTRAL_API_KEY is not set")
+        if provider == "openai":
+            if not api_key:
+                raise ToolRuntimeError("OPENAI_API_KEY is not set")
+            if any(hint in model.lower() for hint in _MISTRAL_HINTS):
+                raise ToolRuntimeError(
+                    f"Model '{model}' is not an OpenAI model. Set ORION_{_tier(purpose).upper()}_MODEL when using the openai provider."
+                )
         if provider == "openai_compat" and not url:
             raise ToolRuntimeError(
                 "ORION_WORKER_BASE_URL is not set for openai_compat (Ollama: http://127.0.0.1:11434/v1)"
@@ -78,7 +85,7 @@ class LLMGateway:
             "model": model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            ("max_completion_tokens" if provider == "openai" else "max_tokens"): max_tokens,
         }
         if force_json:
             payload["response_format"] = {"type": "json_object"}
@@ -121,6 +128,9 @@ class LLMGateway:
                         if "tool" in body and ("tools" in payload):
                             payload.pop("tools", None)
                             payload.pop("tool_choice", None)
+                            stripped = True
+                        if "temperature" in body and "temperature" in payload:
+                            payload.pop("temperature", None)  # some reasoning models only accept the default
                             stripped = True
                         if "max_completion_tokens" in body and "max_tokens" in payload:
                             payload["max_completion_tokens"] = payload.pop("max_tokens")
@@ -174,40 +184,44 @@ class LLMGateway:
             raise last_err or ToolRuntimeError("LLM call failed")
 
 
-def _resolve_endpoint(settings: Settings, purpose: str, model: Optional[str]) -> tuple[str, str, str, str]:
+OPENAI_BASE_URL = "https://api.openai.com/v1"
+_MISTRAL_HINTS = ("mistral", "ministral", "codestral", "pixtral")
+
+
+def _tier(purpose: str) -> str:
+    """Model tier for a purpose. Summaries and routing use the cheap tier."""
     if purpose == "judge":
-        provider = settings.judge_provider
-        chosen = model or settings.tiers.judge
-        if provider == "openai_compat":
-            base = settings.judge_base_url or settings.worker_base_url
-            key = settings.judge_api_key or "local"
-        else:
-            base = settings.judge_base_url or settings.mistral_api_url
-            key = settings.judge_api_key or settings.mistral_api_key
-    elif purpose == "router":
-        provider = settings.router_provider
-        chosen = model or settings.tiers.router
-        if provider == "openai_compat":
-            base = settings.worker_base_url
-            key = settings.worker_api_key or "local"
-        else:
-            base = settings.mistral_api_url
-            key = settings.worker_api_key or settings.mistral_api_key
+        return "judge"
+    if purpose in {"router", "summarize"}:
+        return "router"
+    return "worker"
+
+
+def _resolve_endpoint(settings: Settings, purpose: str, model: Optional[str]) -> tuple[str, str, str, str]:
+    """Return `(provider, chat_url, api_key, model)` for a purpose.
+
+    Providers: `mistral`, `openai` (api.openai.com or `ORION_OPENAI_BASE_URL`), and `openai_compat`
+    (Ollama, vLLM, LM Studio or any OpenAI-shaped server).
+    """
+    tier = _tier(purpose)
+    provider = {"judge": settings.judge_provider, "router": settings.router_provider}.get(tier, settings.worker_provider)
+    chosen = model or getattr(settings.tiers, tier)
+    own_key = settings.judge_api_key if tier == "judge" else settings.worker_api_key
+    if provider == "openai_compat":
+        base = (settings.judge_base_url or settings.worker_base_url) if tier == "judge" else settings.worker_base_url
+        key = own_key or "local"
+    elif provider == "openai":
+        base = settings.openai_base_url or OPENAI_BASE_URL
+        key = own_key or settings.openai_api_key
     else:
-        provider = settings.worker_provider
-        chosen = model or settings.tiers.worker
-        if provider == "openai_compat":
-            base = settings.worker_base_url
-            key = settings.worker_api_key or "local"
-        else:
-            base = settings.mistral_api_url
-            key = settings.worker_api_key or settings.mistral_api_key
+        base = (settings.judge_base_url or settings.mistral_api_url) if tier == "judge" else settings.mistral_api_url
+        key = own_key or settings.mistral_api_key
     return provider, _chat_url(provider, base), key, chosen
 
 
 def _chat_url(provider: str, base: str) -> str:
     url = (base or "").strip()
-    if provider == "openai_compat":
+    if provider in {"openai_compat", "openai"}:
         if not url:
             return ""
         if url.endswith("/chat/completions"):

@@ -10,6 +10,7 @@ from typing import Iterator, Optional
 
 from backend.deps import Identity
 from backend.errors import ApiError
+from harness import guard
 from harness.agent_registry import get_registry
 from harness.permissions import preprocess
 from harness.planner import OrchestrationResult, coordinate_stream
@@ -40,10 +41,13 @@ def parse_pin(message: str, requested: Optional[str], role: Optional[str]) -> tu
 
 
 def check_input(message: str) -> str:
-    """Regex gate. Returns the cleaned text or raises 400. Model guardrails are added in `guard`."""
+    """Regex gate, then the optional model guardrail. Returns the cleaned text or raises 400."""
     pre = preprocess(message)
     if not pre.approved:
         raise ApiError(400, "blocked", f"Request blocked: {pre.reason}")
+    verdict = guard.check_input(pre.clean_text)
+    if verdict.blocked:
+        raise ApiError(400, "blocked_by_guard", f"Request blocked: {verdict.reason}")
     return pre.clean_text
 
 
