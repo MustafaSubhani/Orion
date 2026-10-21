@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from harness import tenancy
 from harness.context import RequestContext, is_product
 from harness.errors import HarnessError, SandboxError
 from harness.packs import registry as pack_registry
@@ -64,7 +65,7 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
     if is_product(ctx):
         from harness.connectors import registry as connector_registry
 
-        connected = connector_registry().prompt_text(ctx.role)
+        connected = connector_registry().prompt_text(ctx.role, tenant=tenancy.of(ctx))
         if connected:
             schema = schema + "\n--- connected data sources (read-only; address as connector.table) ---\n" + connected
     lake_label = "Frozen tables + live KB (uploads are not eval gold):\n" if ctx.extra.get("kb_enabled") else "Frozen tables:\n"

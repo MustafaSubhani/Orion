@@ -17,7 +17,7 @@ import time
 import uuid
 from typing import Any, Callable, Optional
 
-from harness import statedb
+from harness import statedb, tenancy
 from harness.settings_store import effective
 
 log = logging.getLogger("orion.quality")
@@ -91,10 +91,10 @@ def judge_and_queue(
 
 def maybe_sample(*, tenant: str, request_id: str, query: str, answer: str, agents: list[str]) -> bool:
     """Called after a live answer. Starts a background judge for a sampled fraction. Returns True if sampled."""
-    if not should_sample(float(effective("quality.sample_rate"))):
+    if not should_sample(float(effective("quality.sample_rate", tenant))):
         return False
     threading.Thread(
-        target=judge_and_queue,
+        target=tenancy.bound(judge_and_queue, tenant),
         kwargs={"tenant": tenant, "request_id": request_id, "query": query, "answer": answer, "agents": agents},
         name="orion-quality-judge",
         daemon=True,
@@ -169,6 +169,8 @@ def apply_repair(item_id: str, *, tenant: str, actor: str, runner: Any = None, t
     if item is None or item["status"] != "pending":
         raise LookupError("unknown or already decided queue item")
     card = get_registry().get(item["agent_id"] or "")
+    if card is not None and not tenancy.card_visible(card, tenant):
+        raise LookupError("unknown or already decided queue item")  # another tenant's agent is never patched from here
     if card is None or not card.is_custom:
         raise PermissionError("only Lab agents are repaired; built-in agents are never patched automatically")
     judge = item["judge"]

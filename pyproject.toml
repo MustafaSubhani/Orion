@@ -35,9 +35,11 @@ rag = ["chromadb>=0.5", "sentence-transformers>=3"]
 sandbox = ["pywin32>=306; sys_platform == 'win32'"]
 # Optional Gradio fallback UI
 gradio = ["gradio>=4"]
+# OpenID Connect sign-in (ID-token verification against the provider's JWKS)
+oidc = ["pyjwt[crypto]>=2.8"]
 dev = ["ruff>=0.5", "pyright>=1.1.370"]
 all = [
-  "orion-harness[api,guard,mcp,search,rag,sandbox]",
+  "orion-harness[api,guard,mcp,search,rag,sandbox,oidc]",
 ]
 
 [project.scripts]

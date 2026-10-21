@@ -8,15 +8,29 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from harness import tenancy
 from harness.config import KB_DIR
 from harness.errors import SchemaInvalidError
 
 _LOCK = threading.Lock()
 
 
-def root() -> Path:
+def base_root() -> Path:
+    """The deployment's KB directory (the default tenant's store)."""
     override = os.environ.get("ORION_KB_DIR", "").strip()
     return Path(override) if override else KB_DIR
+
+
+def root() -> Path:
+    """The bound tenant's KB directory: `kb/` for `default`, `kb/tenants/<slug>/` for any other."""
+    return tenancy.scoped_dir(base_root())
+
+
+def collection_name() -> str:
+    """The bound tenant's vector collection."""
+    from harness.config import COLLECTION_KB
+
+    return tenancy.collection(COLLECTION_KB)
 
 
 def files_dir() -> Path:
@@ -82,10 +96,9 @@ def delete_resource(resource_id: str) -> bool:
     if meta and meta.get("path"):
         (root() / str(meta["path"])).unlink(missing_ok=True)
     try:
-        from harness.config import COLLECTION_KB
         from retrieval.vector_store import get_or_create_collection
 
-        get_or_create_collection(COLLECTION_KB).delete(where={"resource_id": resource_id})
+        get_or_create_collection(collection_name()).delete(where={"resource_id": resource_id})
     except Exception:  # the vector index is optional; the catalog is the source of truth
         pass
     return True

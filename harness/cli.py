@@ -111,7 +111,12 @@ def cmd_users(args: argparse.Namespace) -> int:
     if problem:
         print(f"error: {problem}", file=sys.stderr)
         return 1
-    if not db.create_user(args.name, password, args.role, args.tenant):
+    try:
+        created = db.create_user(args.name, password, args.role, args.tenant)
+    except ValueError as exc:  # TenantError: tenant ids become directory names, so they are validated
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if not created:
         print(f"error: could not create '{args.name}' (name taken, or invalid role)", file=sys.stderr)
         return 1
     print(f"created {args.name} ({args.role})")

@@ -1,0 +1,33 @@
+# docker compose up --build
+# Needs a .env next to this file (copy .env.example) with at least ORION_ADMIN_PASSWORD and a model key.
+services:
+  orion:
+    build: .
+    image: orion-harness:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"   # loopback only; put a TLS reverse proxy in front for remote access
+    env_file:
+      - .env
+    environment:
+      ORION_ENV: production      # refuses to start without ORION_ADMIN_PASSWORD
+      ORION_CORS_ORIGINS: ${ORION_CORS_ORIGINS:-http://localhost:3000}
+      ORION_KB_DIR: /app/outputs/kb          # not /app/kb: that is the kb Python package
+    volumes:
+      - ./data:/app/data:ro                 # the pinned corpus (large; mounted, never copied into the image)
+      - ./config:/app/config:ro             # connectors.json, mcp_servers.json
+      - orion-outputs:/app/outputs          # traces, skills, KB (one directory per tenant), agent versions, databases
+      - orion-lab:/app/lab/generated        # Lab agents
+      - orion-chroma:/app/chroma_db
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  orion-outputs:
+  orion-lab:
+  orion-chroma:

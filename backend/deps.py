@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import Depends, Header
 
 from backend.errors import ApiError
+from harness import tenancy
 from harness.auth import auth_required, identity_from
 
 
@@ -20,6 +21,11 @@ class Identity:
     @property
     def is_admin(self) -> bool:
         return self.role == "super_user"
+
+    @property
+    def is_platform_admin(self) -> bool:
+        """An administrator of the operator tenant. Only they manage deployment-wide resources and other tenants."""
+        return self.is_admin and tenancy.is_platform(self.tenant)
 
     @property
     def harness_role(self) -> Optional[str]:
@@ -48,3 +54,20 @@ def require_admin(identity: Identity = Depends(current_identity)) -> Identity:
     if not identity.is_admin:
         raise ApiError(403, "forbidden", "Administrator access required")
     return identity
+
+
+def require_platform_admin(identity: Identity = Depends(current_identity)) -> Identity:
+    """Deployment-wide resources (MCP servers, connectors, other tenants' users) are not a tenant admin's to touch."""
+    if not identity.is_platform_admin:
+        raise ApiError(403, "forbidden", "Platform administrator access required")
+    return identity
+
+
+def can_see_agent(identity: Identity, card: object) -> bool:
+    """Built-in agents are shared. A custom agent belongs to one tenant; only the platform admin sees across."""
+    return identity.is_platform_admin or tenancy.card_visible(card, identity.tenant)
+
+
+def in_scope(identity: Identity, tenant: str) -> bool:
+    """Whether `identity` may see or manage a resource owned by `tenant`."""
+    return identity.is_platform_admin or identity.tenant == tenant

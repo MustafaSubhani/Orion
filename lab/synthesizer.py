@@ -12,6 +12,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from harness import tenancy
 from harness.agent_registry import deploy_agent, get_agent, get_custom_agents, get_registry, predeploy_check
 from harness.config import LAB_GENERATED_DIR, ensure_dirs
 from harness.types import AgentCard, AgentStatus, LatencyClass
@@ -85,6 +86,7 @@ class LabSession:
     answers: dict[str, str] = field(default_factory=dict)
     created_id: Optional[str] = None
     chat_agent: Optional[str] = None
+    tenant: str = tenancy.DEFAULT_TENANT
 
 
 class LabAgent:
@@ -96,10 +98,17 @@ class LabAgent:
             self.sessions[user] = LabSession()
         return self.sessions[user]
 
-    def process_message(self, user: str, message: str) -> str:
+    @staticmethod
+    def _agent(agent_id: str, tenant: str) -> Optional[AgentCard]:
+        """The agent if this tenant may see it. Another tenant's agent does not exist for this caller."""
+        card = get_agent(agent_id)
+        return card if card is not None and tenancy.card_visible(card, tenant) else None
+
+    def process_message(self, user: str, message: str, tenant: str = tenancy.DEFAULT_TENANT) -> str:
         text = (message or "").strip()
         lower = text.lower()
         s = self.session(user)
+        s.tenant = tenancy.slug(tenant)
         if lower in {"help", "?"}:
             return self._help()
         if lower in {"cancel", "reset"}:
@@ -119,24 +128,24 @@ class LabAgent:
             s.answers = {}
             return questions()[Step.NAME]
         if lower == "list":
-            return self._list()
+            return self._list(s.tenant)
         if lower.startswith("use "):
             return self._use(user, text.split(" ", 1)[1].strip())
         if lower.startswith("delete "):
-            return self._delete(text.split(" ", 1)[1].strip())
+            return self._delete(text.split(" ", 1)[1].strip(), s.tenant)
         if lower.startswith("deploy"):
             parts = text.split()
             if len(parts) < 2:
                 return "Usage: `deploy <agent_id>`"
-            return self._deploy(parts[1])
+            return self._deploy(parts[1], s.tenant)
         if lower.startswith("test "):
-            return self._test(text.split(" ", 1)[1].strip())
+            return self._test(text.split(" ", 1)[1].strip(), s.tenant)
         if lower.startswith("evaluate "):
-            return self._evaluate(text.split(" ", 1)[1].strip(), user)
+            return self._evaluate(text.split(" ", 1)[1].strip(), user, s.tenant)
         return self._help()
 
-    def process_message_streaming(self, user: str, message: str):
-        result = self.process_message(user, message)
+    def process_message_streaming(self, user: str, message: str, tenant: str = tenancy.DEFAULT_TENANT):
+        result = self.process_message(user, message, tenant)
         acc = ""
         for word in result.split(" "):
             acc += word + " "
@@ -159,7 +168,7 @@ class LabAgent:
             return questions()[Step.TOOLS]
         if s.step == Step.TOOLS:
             s.answers["tools"] = text
-            card = synthesize(s.answers, created_by=user)
+            card = synthesize(s.answers, created_by=user, tenant=s.tenant)
             s.created_id = card.id
             s.mode = LabMode.IDLE
             s.step = Step.DONE
@@ -174,8 +183,8 @@ class LabAgent:
             )
         return questions().get(s.step or Step.NAME, self._help())
 
-    def _list(self) -> str:
-        agents = get_custom_agents()
+    def _list(self, tenant: str) -> str:
+        agents = [a for a in get_custom_agents() if tenancy.card_visible(a, tenant)]
         if not agents:
             return "No synthesized agents yet. Type `customize`."
         lines = ["**Synthesized agents**"]
@@ -184,10 +193,10 @@ class LabAgent:
         return "\n".join(lines)
 
     def _use(self, user: str, agent_id: str) -> str:
-        card = get_agent(agent_id)
+        s = self.session(user)
+        card = self._agent(agent_id, s.tenant)
         if not card:
             return f"Unknown id `{agent_id}`."
-        s = self.session(user)
         s.mode = LabMode.CHAT
         s.chat_agent = agent_id
         return f"Now chatting with **{card.name}** (`{card.id}`). Type `cancel` to leave."
@@ -202,26 +211,28 @@ class LabAgent:
         result = coordinate(message, pin_agent=s.chat_agent)
         return f"**{s.chat_agent}**\n\n{result.final_response}"
 
-    def _delete(self, agent_id: str) -> str:
-        ok = get_registry().delete(agent_id)
+    def _delete(self, agent_id: str, tenant: str) -> str:
+        ok = self._agent(agent_id, tenant) is not None and get_registry().delete(agent_id)
         return f"Deleted `{agent_id}`." if ok else f"Cannot delete `{agent_id}`."
 
-    def _evaluate(self, agent_id: str, user: str) -> str:
+    def _evaluate(self, agent_id: str, user: str, tenant: str) -> str:
         from lab.evaluate import evaluate, summarize
 
-        if not get_agent(agent_id):
+        if not self._agent(agent_id, tenant):
             return f"Unknown `{agent_id}`."
         return summarize(evaluate(agent_id, actor=user))
 
-    def _deploy(self, agent_id: str) -> str:
+    def _deploy(self, agent_id: str, tenant: str) -> str:
+        if not self._agent(agent_id, tenant):
+            return f"Unknown `{agent_id}`."
         check = predeploy_check(agent_id)
         if not check["passed"]:
             return "**Deploy blocked**\n" + json.dumps(check, indent=2)
         ok = deploy_agent(agent_id)
         return f"**Deployed** `{agent_id}`." if ok else f"Deploy failed for `{agent_id}`."
 
-    def _test(self, agent_id: str) -> str:
-        card = get_agent(agent_id)
+    def _test(self, agent_id: str, tenant: str) -> str:
+        card = self._agent(agent_id, tenant)
         if not card:
             return f"Unknown `{agent_id}`."
         path = Path(card.module_path) if card.module_path else None
@@ -251,15 +262,17 @@ class LabAgent:
 lab_agent = LabAgent()
 
 
-def ask_lab(question: str, user: str = "anonymous") -> str:
-    return lab_agent.process_message(user, question)
+def ask_lab(question: str, user: str = "anonymous", tenant: str = tenancy.DEFAULT_TENANT) -> str:
+    return lab_agent.process_message(user, question, tenant)
 
 
-def ask_lab_stream(question: str, user: str = "anonymous"):
-    yield from lab_agent.process_message_streaming(user, question)
+def ask_lab_stream(question: str, user: str = "anonymous", tenant: str = tenancy.DEFAULT_TENANT):
+    yield from lab_agent.process_message_streaming(user, question, tenant)
 
 
-def synthesize(answers: dict[str, str], created_by: str = "lab") -> AgentCard:
+def synthesize(answers: dict[str, str], created_by: str = "lab", tenant: str = tenancy.DEFAULT_TENANT) -> AgentCard:
+    """Create a DRAFT agent owned by `tenant` (stamped in its metadata; invisible to every other tenant)."""
+    tenant = tenancy.slug(tenant)
     ensure_dirs()
     name = answers.get("name") or "untitled"
     slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "agent"
@@ -337,7 +350,7 @@ def synthesize(answers: dict[str, str], created_by: str = "lab") -> AgentCard:
         created_at=datetime.now(timezone.utc).isoformat(),
         module_path=str(module_path) if module_path else None,
         latency_class=LatencyClass.SLOW,
-        metadata={"source": "lab_synthesizer", "mode": mode},
+        metadata={"source": "lab_synthesizer", "mode": mode, "tenant": tenant},
     )
     from harness.fsutil import atomic_write
 

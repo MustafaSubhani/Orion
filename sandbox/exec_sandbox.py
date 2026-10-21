@@ -16,7 +16,6 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from harness.config import PROJECT_ROOT
 from harness.errors import SandboxError, SchemaInvalidError
 from harness.permissions import SALARY_COLUMNS
 from retrieval.tables import load_table, table_entity
@@ -173,32 +172,32 @@ def run_generated_agent(
     memory_mb: Optional[int] = None,
     cpu_s: Optional[float] = None,
 ) -> str:
-    """Run generated agent.py in a subprocess with OS-enforced limits, a minimal environment and no network.
+    """Run generated agent.py in the configured isolation backend (default: limited subprocess).
 
-    Limits default to the admin settings (`sandbox.memory_mb`, `sandbox.cpu_s`, `sandbox.wall_s`).
-    The wall clock is the smaller of `timeout_s` and `sandbox.wall_s`.
+    The AST gate always runs first. Limits default to the admin settings (`sandbox.memory_mb`,
+    `sandbox.cpu_s`, `sandbox.wall_s`); the wall clock is the smaller of `timeout_s` and `sandbox.wall_s`.
+    `sandbox.backend` selects `subprocess` or `docker` (see `sandbox/backends.py`).
     """
     from harness.settings_store import effective
-    from sandbox.limits import minimal_env, python_executable, run_limited
+    from sandbox.backends import get_backend
 
     gate = static_gate(module_path)
     if not gate.ok:
         raise SandboxError(f"static gate failed: {gate.reason}")
-    runner = Path(__file__).with_name("worker_loop.py")
     wall = min(float(timeout_s), float(effective("sandbox.wall_s")))
+    backend = get_backend()
     try:
-        code, out, err, timed_out = run_limited(
-            [python_executable(), str(runner), str(module_path), task],
-            env=minimal_env(PROJECT_ROOT),
-            cwd=str(PROJECT_ROOT),
+        outcome = backend.run(
+            module_path,
+            task,
             memory_mb=int(memory_mb or effective("sandbox.memory_mb")),
             cpu_s=float(cpu_s or effective("sandbox.cpu_s")),
             wall_s=wall,
         )
     except RuntimeError as exc:
         raise SandboxError(str(exc)) from exc
-    if timed_out:
+    if outcome.timed_out:
         raise SandboxError(f"generated agent timed out after {wall:g}s")
-    if code != 0:
-        raise SandboxError("generated agent crashed", details=(err or out)[:800])
-    return (out or "").strip()
+    if outcome.code != 0:
+        raise SandboxError("generated agent crashed", details=(outcome.stderr or outcome.stdout)[:800])
+    return (outcome.stdout or "").strip()

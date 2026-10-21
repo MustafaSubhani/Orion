@@ -100,8 +100,8 @@ def models(_: Identity = Depends(current_identity)) -> dict:
 
 @router.post("/chat/completions")
 def chat_completions(req: OAIChatRequest, identity: Identity = Depends(current_identity)):
-    query = service.check_input(last_user_text(req.messages))
-    query, pin = service.parse_pin(query, None, None)
+    query = service.check_input(last_user_text(req.messages), identity.tenant)
+    query, pin = service.parse_pin(query, None, None, identity.tenant)
     thread_id = (req.model_extra or {}).get("thread_id")
     cid = "chatcmpl-" + uuid.uuid4().hex[:24]
     created = int(time.time())

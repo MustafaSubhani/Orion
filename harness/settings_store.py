@@ -14,9 +14,9 @@ import time
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from harness import statedb
+from harness import statedb, tenancy
 
-DEFAULT_TENANT = "default"
+DEFAULT_TENANT = tenancy.DEFAULT_TENANT
 CACHE_TTL_S = 2.0
 
 statedb.register_schema(
@@ -76,7 +76,8 @@ SCHEMA: dict[str, Setting] = {
     "sandbox.memory_mb": Setting(int, 512, "Memory cap for generated code.", minimum=64, maximum=8192),
     "sandbox.cpu_s": Setting(int, 10, "CPU seconds for generated code.", minimum=1, maximum=300),
     "sandbox.wall_s": Setting(int, 30, "Wall seconds for generated code.", minimum=1, maximum=600),
-    "sandbox.backend": Setting(str, "subprocess", "Isolation backend.", choices=("subprocess", "docker")),
+    "sandbox.backend": Setting(str, "subprocess", "Isolation backend for generated code.", choices=("subprocess", "docker")),
+    "sandbox.docker_image": Setting(str, "python:3.12-slim", "Image used by the docker sandbox backend."),
 }
 
 _cache: dict[tuple[str, str], tuple[float, Any]] = {}
@@ -158,9 +159,14 @@ def clear_cache() -> None:
         _cache.clear()
 
 
-def effective(key: str, tenant: str = DEFAULT_TENANT) -> Any:
-    """Current value for `key`: admin override, else env, else default."""
+def effective(key: str, tenant: Optional[str] = None) -> Any:
+    """Current value for `key`: the tenant's admin override, else env, else default.
+
+    With no `tenant` the tenant bound by `tenancy.use(...)` applies (`default` outside a request), so
+    deep call sites need no plumbing and one tenant's overrides never reach another tenant.
+    """
     spec = _spec(key)
+    tenant = tenancy.slug(tenant) if tenant else tenancy.current()
     now = time.monotonic()
     with _cache_lock:
         hit = _cache.get((tenant, key))
@@ -189,8 +195,9 @@ def effective(key: str, tenant: str = DEFAULT_TENANT) -> Any:
     return value
 
 
-def source(key: str, tenant: str = DEFAULT_TENANT) -> str:
+def source(key: str, tenant: Optional[str] = None) -> str:
     _spec(key)
+    tenant = tenancy.slug(tenant) if tenant else tenancy.current()
     try:
         if _db_get(key, tenant) is not None:
             return "admin"
@@ -203,6 +210,7 @@ def set_value(key: str, value: Any, actor: str, tenant: str = DEFAULT_TENANT) ->
     """Validate and persist an admin override. Returns the stored value."""
     spec = _spec(key)
     clean = _coerce(spec, value, key)
+    tenant = tenancy.slug(tenant)
     conn = statedb.connect()
     try:
         conn.execute(
@@ -223,6 +231,7 @@ def set_value(key: str, value: Any, actor: str, tenant: str = DEFAULT_TENANT) ->
 def reset(key: str, actor: str, tenant: str = DEFAULT_TENANT) -> None:
     """Drop the admin override so env or default applies again."""
     _spec(key)
+    tenant = tenancy.slug(tenant)
     conn = statedb.connect()
     try:
         conn.execute("DELETE FROM settings WHERE tenant = ? AND key = ?", (tenant, key))

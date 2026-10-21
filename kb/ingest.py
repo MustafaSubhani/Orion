@@ -104,11 +104,11 @@ def _try_index(chunks: list[dict[str, Any]]) -> bool:
     if not chunks:
         return False
     try:
-        from harness.config import COLLECTION_KB
+        from kb.store import collection_name
         from retrieval.embeddings import get_embeddings_batch
         from retrieval.vector_store import get_or_create_collection
 
-        col = get_or_create_collection(COLLECTION_KB)
+        col = get_or_create_collection(collection_name())
         texts = [c["text"] for c in chunks]
         ids = [c["id"] for c in chunks]
         metas = [
@@ -155,10 +155,10 @@ def search_kb(query: str, k: int = 8) -> list[dict[str, Any]]:
     if not q:
         raise SchemaInvalidError("kb_search.query is required")
     try:
-        from harness.config import COLLECTION_KB
+        from kb.store import collection_name
         from retrieval.vector_store import query_collection_diverse
 
-        raw = query_collection_diverse(COLLECTION_KB, q, top_k=k)
+        raw = query_collection_diverse(collection_name(), q, top_k=k)
         docs = (raw.get("documents") or [[]])[0]
         metas = (raw.get("metadatas") or [[]])[0]
         dists = (raw.get("distances") or [[]])[0]

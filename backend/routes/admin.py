@@ -8,10 +8,10 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from backend import database as db
-from backend.deps import Identity, require_admin
+from backend.deps import Identity, in_scope, require_admin, require_platform_admin
 from backend.errors import ApiError
 from backend.schemas import SettingOut, SettingValue, UserCreate, UserOut, UserRoleChange
-from harness import settings_store
+from harness import settings_store, tenancy
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -71,7 +71,7 @@ def quality_decide(item_id: str, body: QueueDecision, admin: Identity = Depends(
 
 
 @router.get("/mcp")
-def mcp_status(_: Identity = Depends(require_admin)) -> dict[str, Any]:
+def mcp_status(_: Identity = Depends(require_platform_admin)) -> dict[str, Any]:
     """Configured MCP servers, their connection state and the tools they expose."""
     from harness import mcp_client
 
@@ -84,7 +84,7 @@ def mcp_status(_: Identity = Depends(require_admin)) -> dict[str, Any]:
 
 
 @router.post("/mcp/reload")
-def mcp_reload(_: Identity = Depends(require_admin)) -> dict[str, Any]:
+def mcp_reload(_: Identity = Depends(require_platform_admin)) -> dict[str, Any]:
     """Re-read config/mcp_servers.json, reconnect every server and refresh the registered tools."""
     from harness import mcp_client
 
@@ -92,21 +92,21 @@ def mcp_reload(_: Identity = Depends(require_admin)) -> dict[str, Any]:
 
 
 @router.get("/connectors")
-def list_connectors(_: Identity = Depends(require_admin)) -> list[dict[str, Any]]:
+def list_connectors(_: Identity = Depends(require_platform_admin)) -> list[dict[str, Any]]:
     from harness.connectors import registry
 
     return [c.describe() for c in registry().all()]
 
 
 @router.post("/connectors/reload")
-def reload_connectors(_: Identity = Depends(require_admin)) -> dict[str, Any]:
+def reload_connectors(_: Identity = Depends(require_platform_admin)) -> dict[str, Any]:
     from harness import connectors
 
     return {"loaded": connectors.reload()}
 
 
 @router.post("/connectors/{connector_id}/test")
-def test_connector(connector_id: str, _: Identity = Depends(require_admin)) -> dict[str, Any]:
+def test_connector(connector_id: str, _: Identity = Depends(require_platform_admin)) -> dict[str, Any]:
     from harness.connectors import registry
 
     connector = registry().get(connector_id)
@@ -125,23 +125,44 @@ def _user_out(row: dict[str, Any]) -> UserOut:
     )
 
 
+def _tenant_of(row: dict[str, Any]) -> str:
+    return row.get("tenant") or db.DEFAULT_TENANT
+
+
+def _managed_user(username: str, admin: Identity) -> dict[str, Any]:
+    """The user row, or 404. A user in another tenant is indistinguishable from one that does not exist."""
+    row = next((u for u in db.get_all_users() if u["username"] == username), None)
+    if row is None or not in_scope(admin, _tenant_of(row)):
+        raise ApiError(404, "not_found", "Unknown user")
+    return row
+
+
 @router.get("/users", response_model=list[UserOut])
 def list_users(admin: Identity = Depends(require_admin)) -> list[UserOut]:
-    return [_user_out(u) for u in db.get_all_users() if (u.get("tenant") or db.DEFAULT_TENANT) == admin.tenant]
+    """A tenant administrator sees their own tenant; a platform administrator sees every tenant."""
+    return [_user_out(u) for u in db.get_all_users() if in_scope(admin, _tenant_of(u))]
 
 
 @router.post("/users", response_model=UserOut, status_code=201)
 def create_user(body: UserCreate, admin: Identity = Depends(require_admin)) -> UserOut:
+    tenant = body.tenant or admin.tenant
+    if not in_scope(admin, tenant):
+        raise ApiError(403, "forbidden", "Only a platform administrator can create users in another tenant")
     problem = db.validate_password_strength(body.password)
     if problem:
         raise ApiError(400, "weak_credentials", problem)
-    if not db.create_user(body.username, body.password, body.role, admin.tenant):
+    try:
+        created = db.create_user(body.username, body.password, body.role, tenant)
+    except tenancy.TenantError as exc:
+        raise ApiError(400, "invalid_tenant", str(exc)) from exc
+    if not created:
         raise ApiError(409, "username_taken", "Username already exists")
     return _user_out(next(u for u in db.get_all_users() if u["username"] == body.username))
 
 
 @router.put("/users/{username}/role", response_model=UserOut)
 def change_role(username: str, body: UserRoleChange, admin: Identity = Depends(require_admin)) -> UserOut:
+    _managed_user(username, admin)
     if username == admin.username and body.role != db.ROLE_SUPER_USER:
         raise ApiError(409, "self_demotion", "You cannot remove your own administrator role")
     if not db.set_user_role(username, body.role):
@@ -152,6 +173,7 @@ def change_role(username: str, body: UserRoleChange, admin: Identity = Depends(r
 @router.delete("/users/{username}")
 def deactivate_user(username: str, admin: Identity = Depends(require_admin)) -> dict[str, Any]:
     """Deactivate (not delete) a user and revoke their sessions, keeping the audit trail intact."""
+    _managed_user(username, admin)
     if username == admin.username:
         raise ApiError(409, "self_deactivation", "You cannot deactivate your own account")
     if not db.set_user_active(username, False):

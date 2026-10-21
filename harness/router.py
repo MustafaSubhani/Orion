@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import re
 import threading
+from typing import Optional
 
-from harness.context import RequestContext
+from harness import tenancy
+from harness.context import RequestContext, is_product
 from harness.errors import RoutingError
 from harness.trace import get_tracer
 from harness.types import AgentCard, AgentStatus, SpanKind
@@ -47,15 +49,24 @@ def shortlist(ctx: RequestContext, query: str, k: int = 3) -> list[AgentCard]:
     if hasattr(agents, "add_listener") and not getattr(agents, "_router_hooked", False):
         agents.add_listener(invalidate_vector)
         agents._router_hooked = True  # an attribute, not id(): ids are reused after garbage collection
-    pool = [c for c in agents.active() if c.id != "orchestrator"]
+    product = is_product(ctx)
+    tenant = tenancy.of(ctx)
+
+    def visible(card: Optional[AgentCard]) -> Optional[AgentCard]:
+        """Another tenant's custom agent does not exist as far as this request is concerned."""
+        if card is None or (product and not tenancy.card_visible(card, tenant)):
+            return None
+        return card
+
+    pool = [c for c in agents.active() if c.id != "orchestrator" and visible(c)]
     if ctx.allowed_agents:
         allowed = set(ctx.allowed_agents)
         pool = [c for c in pool if c.id in allowed]
-        missing = [aid for aid in ctx.allowed_agents if agents.get(aid) is None]
+        missing = [aid for aid in ctx.allowed_agents if visible(agents.get(aid)) is None]
         if missing:
             raise RoutingError(f"allowed_agents contains unknown ids: {missing}")
     if ctx.pin_agent:
-        card = agents.get(ctx.pin_agent)
+        card = visible(agents.get(ctx.pin_agent))
         if card is None:
             raise RoutingError(f"pinned agent '{ctx.pin_agent}' is not in the registry")
         if card.status not in {AgentStatus.ACTIVE, AgentStatus.DEPLOYED, AgentStatus.DRAFT}:

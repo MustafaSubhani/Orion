@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, Request
+from pydantic import BaseModel, Field
 
 from backend import database as db
 from backend.deps import Identity, current_identity
 from backend.errors import ApiError
 from backend.ratelimit import login_throttle
 from backend.schemas import AuthRequest, IdentityOut, SessionOut
+from harness import oidc
 from harness.auth import bearer_token
 from harness.settings_store import effective
 
@@ -35,6 +37,31 @@ def login(body: AuthRequest, request: Request) -> SessionOut:
     tenant = db.get_user_tenant(username)
     token = db.create_session(username, role, tenant)
     return SessionOut(token=token, username=username, role=role, tenant=tenant)
+
+
+class OidcRequest(BaseModel):
+    id_token: str = Field(min_length=10, max_length=8192)
+
+
+@router.get("/oidc/config")
+def oidc_config() -> dict:
+    """Whether OIDC sign-in is on, and which issuer and client the UI should use. Nothing secret."""
+    cfg = oidc.config()
+    return {"enabled": cfg is not None, "issuer": cfg.issuer if cfg else None, "client_id": cfg.audience if cfg else None}
+
+
+@router.post("/oidc", response_model=SessionOut)
+def oidc_login(body: OidcRequest, request: Request) -> SessionOut:
+    """Exchange an ID token from the configured identity provider for an Orion session."""
+    key = _client_key(request, "oidc")
+    login_throttle.check(key)
+    try:
+        session = oidc.login(body.id_token)
+    except oidc.OidcError as exc:
+        login_throttle.fail(key)
+        raise ApiError(exc.status, "oidc_rejected", exc.safe_message) from exc
+    login_throttle.success(key)
+    return SessionOut(**session)
 
 
 @router.post("/signup", response_model=SessionOut)

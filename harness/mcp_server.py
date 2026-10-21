@@ -17,6 +17,7 @@ import json
 import sys
 from typing import Any, Optional
 
+from harness import tenancy
 from harness.context import get_runtime, new_context
 from harness.errors import HarnessError, UnknownToolError
 from harness.permissions import assert_tool_allowed, strip_salary_if_limited
@@ -102,7 +103,8 @@ def handle_mcp(
         return _ok(req_id, {"tools": tools})
 
     if method in {"tools/call", "call_tool"}:
-        return _call_tool(runtime, req_id, params, user, role, tenant)
+        with tenancy.use(tenant):  # the tool reads this tenant's KB, skills and settings
+            return _call_tool(runtime, req_id, params, user, role, tenant)
 
     if method in {"resources/list", "list_resources"}:
         return _ok(req_id, {"resources": _resources(role)})

@@ -16,6 +16,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from harness import tenancy
+
 DEFAULT_ROW_CAP = 200
 _URL_CREDENTIALS = re.compile(r"(\w[\w+.-]*://)[^/\s@]*@")
 
@@ -35,6 +37,20 @@ class ColumnInfo:
         return {"name": self.name, "type": self.type, "nullable": self.nullable}
 
 
+def _parse_tenants(raw: Any) -> list[str]:
+    if raw in (None, ""):
+        return []
+    items = [raw] if isinstance(raw, str) else list(raw)
+    out: list[str] = []
+    for item in items:
+        value = str(item).strip()
+        if value != "*":
+            value = tenancy.slug(value)  # raises ValueError for anything that is not a valid tenant id
+        if value not in out:
+            out.append(value)
+    return out
+
+
 @dataclass
 class ConnectorConfig:
     id: str
@@ -48,6 +64,14 @@ class ConnectorConfig:
     sensitive_columns: dict[str, list[str]] = field(default_factory=dict)  # role -> hidden columns
     row_cap: int = DEFAULT_ROW_CAP
     statement_timeout_s: float = 15.0
+    # Tenants that may query this source. Empty means the default (operator) tenant only, so enabling a
+    # second tenant never exposes an existing source. `["*"]` opts in every tenant.
+    tenants: list[str] = field(default_factory=list)
+
+    def visible_to(self, tenant: Optional[str]) -> bool:
+        wanted = tenant or tenancy.DEFAULT_TENANT
+        allowed = self.tenants or [tenancy.DEFAULT_TENANT]
+        return "*" in allowed or wanted in allowed
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ConnectorConfig":
@@ -69,6 +93,7 @@ class ConnectorConfig:
             sensitive_columns={str(r): [str(c) for c in cols] for r, cols in (data.get("sensitive_columns") or {}).items()},
             row_cap=max(1, min(int(data.get("row_cap") or DEFAULT_ROW_CAP), 5000)),
             statement_timeout_s=float(data.get("statement_timeout_s") or 15.0),
+            tenants=_parse_tenants(data.get("tenants")),
         )
 
 
@@ -121,4 +146,5 @@ class DataConnector(ABC):
             "legal_joins": self.config.legal_joins,
             "tables": self.config.tables or "all",
             "row_cap": self.config.row_cap,
+            "tenants": self.config.tenants or [tenancy.DEFAULT_TENANT],
         }

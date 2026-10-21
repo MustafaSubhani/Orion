@@ -11,7 +11,7 @@ from typing import Iterator, Optional
 
 from backend.deps import Identity
 from backend.errors import ApiError
-from harness import guard, quality, summarizer, threads
+from harness import guard, quality, summarizer, tenancy, threads
 from harness.agent_registry import get_registry
 from harness.permissions import preprocess
 from harness.planner import OrchestrationResult, coordinate_stream
@@ -21,11 +21,13 @@ ROUTABLE = {"active", "deployed"}
 NEW_THREAD = "new"
 
 
-def parse_pin(message: str, requested: Optional[str], role: Optional[str]) -> tuple[str, Optional[str]]:
+def parse_pin(
+    message: str, requested: Optional[str], role: Optional[str], tenant: str = tenancy.DEFAULT_TENANT
+) -> tuple[str, Optional[str]]:
     """Resolve an `@agent_id` prefix (or an explicit pin) to a routable agent.
 
     Unknown or paused agents are rejected with 400 rather than silently ignored, so a user never
-    believes they are talking to an agent that is not running.
+    believes they are talking to an agent that is not running. Another tenant's agent is "unknown".
     """
     text = (message or "").strip()
     pin = requested
@@ -36,6 +38,8 @@ def parse_pin(message: str, requested: Optional[str], role: Optional[str]) -> tu
     if not pin:
         return text, None
     card = get_registry().get(pin)
+    if card is not None and not tenancy.card_visible(card, tenant):
+        card = None
     if card is None:
         raise ApiError(400, "unknown_agent", f"Unknown agent '{pin}'")
     if card.status.value not in ROUTABLE:
@@ -43,12 +47,13 @@ def parse_pin(message: str, requested: Optional[str], role: Optional[str]) -> tu
     return text, pin
 
 
-def check_input(message: str) -> str:
-    """Regex gate, then the optional model guardrail. Returns the cleaned text or raises 400."""
+def check_input(message: str, tenant: str = tenancy.DEFAULT_TENANT) -> str:
+    """Regex gate, then the optional model guardrail (the tenant's setting). Returns the cleaned text or raises 400."""
     pre = preprocess(message)
     if not pre.approved:
         raise ApiError(400, "blocked", f"Request blocked: {pre.reason}")
-    verdict = guard.check_input(pre.clean_text)
+    with tenancy.use(tenant):
+        verdict = guard.check_input(pre.clean_text)
     if verdict.blocked:
         raise ApiError(400, "blocked_by_guard", f"Request blocked: {verdict.reason}")
     return pre.clean_text
@@ -60,7 +65,7 @@ def prepare_thread(identity: Identity, thread_id: Optional[str], message: str) -
     `thread_id="new"` starts a thread titled after the message. Unknown or foreign threads are 404.
     With `memory.enabled` off the id is ignored and the turn is stateless.
     """
-    if not thread_id or not effective("memory.enabled"):
+    if not thread_id or not effective("memory.enabled", identity.tenant):
         return None, ""
     if thread_id == NEW_THREAD:
         created = threads.create(tenant=identity.tenant, user=identity.username, title=message)

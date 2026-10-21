@@ -16,6 +16,7 @@ import threading
 from pathlib import Path
 from typing import Any, Optional
 
+from harness import tenancy
 from harness.config import PROJECT_ROOT
 from harness.connectors.base import ColumnInfo, ConnectorConfig, ConnectorError, DataConnector
 from harness.connectors.files import FilesConnector
@@ -109,28 +110,36 @@ class ConnectorRegistry:
         with self._lock:
             return list(self._connectors.values())
 
-    def resolve(self, ref: str) -> tuple[DataConnector, str]:
-        """Split `connector.table`. Unknown connectors are SchemaInvalidError so F4 recovery can list them."""
+    def for_tenant(self, tenant: Optional[str] = None) -> list[DataConnector]:
+        """Connectors a tenant may use (the bound tenant when none is given). Admin listings use `all()`."""
+        wanted = tenant or tenancy.current()
+        return [c for c in self.all() if c.config.visible_to(wanted)]
+
+    def resolve(self, ref: str, tenant: Optional[str] = None) -> tuple[DataConnector, str]:
+        """Split `connector.table`. Unknown connectors are SchemaInvalidError so F4 recovery can list them.
+
+        A connector the tenant may not use is reported exactly like one that does not exist.
+        """
         cid, _, table = str(ref or "").partition(".")
-        connector = self.get(cid)
+        visible = {c.id: c for c in self.for_tenant(tenant)}
+        connector = visible.get(cid)
         if connector is None or not table:
-            known = [c.id for c in self.all()]
-            raise SchemaInvalidError(f"Unknown connector table '{ref}'. Connectors: {known}")
+            raise SchemaInvalidError(f"Unknown connector table '{ref}'. Connectors: {list(visible)}")
         return connector, table
 
-    def table_refs(self) -> list[str]:
+    def table_refs(self, tenant: Optional[str] = None) -> list[str]:
         out: list[str] = []
-        for connector in self.all():
+        for connector in self.for_tenant(tenant):
             try:
                 out.extend(f"{connector.id}.{t}" for t in connector.tables())
             except Exception as exc:  # one unavailable source must not hide the others
                 log.warning("connector %s unavailable: %s", connector.id, exc)
         return out
 
-    def prompt_text(self, role: Optional[str], limit_chars: int = 1800) -> str:
-        """Short schema lines for the worker prompt. Masked columns never appear."""
+    def prompt_text(self, role: Optional[str], limit_chars: int = 1800, tenant: Optional[str] = None) -> str:
+        """Short schema lines for the worker prompt. Masked columns never appear; other tenants' sources are absent."""
         lines: list[str] = []
-        for connector in self.all():
+        for connector in self.for_tenant(tenant):
             try:
                 for table in connector.tables():
                     cols = ", ".join(f"{c.name}:{c.type}" for c in connector.schema(table, role))
@@ -146,14 +155,14 @@ class ConnectorRegistry:
     def sql_spec(self, args: dict[str, Any], ctx: RequestContext) -> dict[str, Any]:
         from harness.entities import assert_entity_allowed
 
-        connector, table = self.resolve(str(args.get("table") or ""))
+        connector, table = self.resolve(str(args.get("table") or ""), tenancy.of(ctx))
         assert_entity_allowed(ctx, connector.entity)
         spec = dict(args)
         spec["table"] = table
         return connector.query(spec, role=ctx.role)
 
     def schema_lookup(self, args: dict[str, Any], ctx: RequestContext) -> dict[str, Any]:
-        connector, table = self.resolve(str(args.get("table") or ""))
+        connector, table = self.resolve(str(args.get("table") or ""), tenancy.of(ctx))
         columns = connector.schema(table, ctx.role)
         preview = f"TABLE {connector.id}.{table} entity={connector.entity}\n" + "\n".join(
             f"- {c.name}: {c.type}" for c in columns
@@ -209,7 +218,7 @@ def install_tool_wrappers(tools: Any) -> None:
             if "." in str(args.get("table") or ""):
                 return registry().schema_lookup(args, ctx)
             result = inner(args, ctx)
-            refs = registry().table_refs()
+            refs = registry().table_refs(tenancy.of(ctx))
             if refs and isinstance(result, dict):
                 result = dict(result)
                 result["connector_tables"] = refs

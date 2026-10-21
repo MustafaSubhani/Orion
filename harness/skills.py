@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from harness import tenancy
 from harness.config import SKILLS_DIR, ensure_dirs
 from harness.fsutil import atomic_write, file_lock, read_text_retry
 
@@ -184,7 +185,7 @@ class SkillStore:
 
     def path_for(self, name: str) -> Path:
         slug = slugify(name)
-        if not slug or slug.startswith(".") or slug == "_archive" or "/" in slug or "\\" in slug:
+        if not slug or slug.startswith(".") or slug in {"_archive", "tenants"} or "/" in slug or "\\" in slug:
             raise ValueError("invalid skill name")
         # `slugify` only emits [a-z0-9-], so the slug cannot traverse. The child is deliberately not
         # `.resolve()`d: on Windows a resolved missing path can differ from the resolved root (8.3 names).
@@ -515,15 +516,20 @@ _STORES: dict[str, SkillStore] = {}
 _STORES_LOCK = threading.Lock()
 
 
-def default_store() -> SkillStore:
-    """The shared store for the configured skills directory (one instance, so hit batching works)."""
+def default_store(tenant: Optional[str] = None) -> SkillStore:
+    """The shared store for a tenant (one instance per directory, so hit batching works).
+
+    The default tenant keeps `outputs/skills/`; every other tenant gets `outputs/skills/tenants/<slug>/`,
+    so one tenant's procedures are never selected into another tenant's prompts.
+    """
     ensure_dirs()
     SKILLS_DIR.mkdir(parents=True, exist_ok=True)
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-    key = str(SKILLS_DIR.resolve())
+    root = tenancy.scoped_dir(SKILLS_DIR, tenant)
+    key = str(root.resolve())
     with _STORES_LOCK:
         if key not in _STORES:
-            _STORES[key] = SkillStore(SKILLS_DIR)
+            _STORES[key] = SkillStore(root)
         return _STORES[key]
 
 

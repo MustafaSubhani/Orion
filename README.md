@@ -106,6 +106,18 @@ Resolution order: admin override in the state database, then environment `ORION_
 
 Trace hygiene: `ORION_TRACE_SCRUB` (default on; masks emails, phones and key-like tokens **on disk** only), `ORION_TRACE_MAX_MB` (audit log rotation, three backups), `ORION_TRACE_RETENTION_DAYS` (default 30; pruned at startup).
 
+## Tenants, SSO and Docker
+
+**Tenants.** Every user belongs to a tenant (lowercase slug, default `default`). Settings, knowledge base, skills, threads, approvals, traces, quality queue and Lab agents are per tenant, and a tenant administrator can only manage their own tenant. The `default` tenant is the operator tenant: it keeps the legacy locations, and only its administrators manage deployment-wide resources (MCP servers, connectors, other tenants' users). Built-in agents are shared; a Lab agent belongs to the tenant that created it. Data connectors are visible to the default tenant only unless the connector lists `"tenants": ["acme"]` or `["*"]`.
+
+```
+orion users create dana --tenant acme --role super_user --password-env DANA_PW
+```
+
+**SSO (optional).** Install the `oidc` extra and set `ORION_OIDC_ISSUER` and `ORION_OIDC_CLIENT_ID`. The UI completes the provider's login and posts the ID token to `POST /auth/oidc`; only asymmetric signatures are accepted. The tenant comes from the `tenant` claim and the role from the `roles` claim (`orion-admin` means administrator). Accounts are created on first login with no usable password and can never overlap a local account. See `.env.example` for the claim options.
+
+**Docker.** `docker compose up --build` runs the API as an unprivileged user with a read-only root filesystem, bound to loopback. It needs a `.env` with `ORION_ADMIN_PASSWORD`; `data/` and `config/` are mounted, state lives in named volumes. Set the setting `sandbox.backend` to `docker` to run generated agents in throwaway containers (no network, read-only root, dropped capabilities, memory, CPU and PID limits); if Docker is unavailable it fails closed rather than using weaker isolation.
+
 ## Extending
 
 - **Domain pack** — an entry point in the `orion.packs` group returning a `Pack` (agents, tools, policy, vocabularies). The bundled one is the reference; a parity test pins it.

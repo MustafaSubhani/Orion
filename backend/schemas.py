@@ -111,6 +111,7 @@ class UserCreate(BaseModel):
     username: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_.@-]+$")
     password: str = Field(min_length=8, max_length=256)
     role: str = Field(default="limited", pattern="^(super_user|limited)$")
+    tenant: Optional[str] = Field(default=None, pattern=r"^[a-z0-9][a-z0-9_-]{0,47}$")  # platform admins only
 
 
 class UserRoleChange(BaseModel):

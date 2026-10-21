@@ -8,7 +8,7 @@ from concurrent.futures import TimeoutError as FuturesTimeout
 from dataclasses import dataclass, field
 from typing import Generator, Optional
 
-from harness import faults, metrics
+from harness import faults, metrics, tenancy
 from harness.config import get_settings
 from harness.context import RequestContext, is_product, new_context
 from harness.errors import HarnessError, RoutingError, StateIntegrityError
@@ -49,7 +49,7 @@ def coordinate_stream(
     history: str = "",
 ) -> Generator[dict, None, None]:
     ctx = new_context(user=user, role=user_role, allowed_agents=allowed_agents, pin_agent=pin_agent)
-    ctx.extra["tenant"] = tenant
+    ctx.extra["tenant"] = tenant = tenancy.slug(tenant)
     if not heal:
         ctx.budget.max_heal_cycles = 0
         ctx.heal_cycles_left = 0
@@ -114,7 +114,8 @@ def coordinate_stream(
     yield {"type": "init", "message": "Analyzing your query...", "request_id": ctx.request_id}
 
     try:
-        agent_ids = route(ctx, clean)
+        with tenancy.use(tenancy.of(ctx)):
+            agent_ids = route(ctx, clean)
     except RoutingError as exc:
         yield {"type": "error", "message": exc.safe_message, "request_id": ctx.request_id}
         return
@@ -219,7 +220,8 @@ def coordinate_stream(
     ordered = [graph.nodes[nid].to_task() for nid in graph.topo_order()]
     if len(ordered) > 1:
         yield {"type": "synthesizing", "message": "Combining results from all agents...", "request_id": ctx.request_id}
-        final = _synthesize(ctx, clean, ordered)
+        with tenancy.use(tenancy.of(ctx)):
+            final = _synthesize(ctx, clean, ordered)
     else:
         final = ordered[0].result if ordered else ""
 
@@ -319,6 +321,8 @@ def _default_agent(ctx: RequestContext) -> Optional[str]:
         active = ctx.runtime.agents.active()
     except (AttributeError, HarnessError):
         return None
+    if is_product(ctx):
+        active = [c for c in active if tenancy.card_visible(c, tenancy.of(ctx))]
     return active[0].id if active else None
 
 
@@ -336,7 +340,8 @@ def _run_wave(wave: list[GraphNode], query: str, ctx: RequestContext) -> list[Gr
         wctx = contexts[node.id]
         task = node.to_task()
         task.status = TaskStatus.IN_PROGRESS
-        done = _execute_with_heal(task, query, wctx)
+        with tenancy.use(tenancy.of(wctx)):  # pool threads start unbound; every setting/store read below is this tenant's
+            done = _execute_with_heal(task, query, wctx)
         if wctx.cancelled():
             return node  # the planner already failed this node on timeout
         node.status = done.status

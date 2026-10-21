@@ -44,56 +44,56 @@ class ThreadStoreTests(StateCase):
         self.assertFalse(threads.rename(mine["id"], "t1", "bob", "hijack"))
 
     def test_messages_roundtrip_and_delete_cascades(self) -> None:
-        t = threads.create(tenant="d", user="a")
+        t = threads.create(tenant="default", user="a")
         threads.append(t["id"], "user", "q1", "R1")
         threads.append(t["id"], "assistant", "a1", "R1")
         rows = threads.messages(t["id"])
         self.assertEqual([(m["role"], m["content"]) for m in rows], [("user", "q1"), ("assistant", "a1")])
         self.assertEqual(len(threads.messages(t["id"], after_id=rows[0]["id"])), 1)
-        self.assertEqual(threads.list_for(tenant="d", user="a")[0]["messages"], 2)
-        self.assertTrue(threads.delete(t["id"], "d", "a"))
+        self.assertEqual(threads.list_for(tenant="default", user="a")[0]["messages"], 2)
+        self.assertTrue(threads.delete(t["id"], "default", "a"))
         self.assertEqual(threads.messages(t["id"]), [])
 
     def test_history_text_is_summary_plus_turns_after_it(self) -> None:
-        t = threads.create(tenant="d", user="a")
+        t = threads.create(tenant="default", user="a")
         first = threads.append(t["id"], "user", "old question", "R1")
         threads.append(t["id"], "assistant", "old answer", "R1")
         threads.append(t["id"], "user", "new question", "R2")
         threads.set_summary(t["id"], "They asked about payroll.", first + 1)
-        text = threads.history_text(threads.get(t["id"], "d", "a"))
+        text = threads.history_text(threads.get(t["id"], "default", "a"))
         self.assertIn("Summary of earlier turns:\nThey asked about payroll.", text)
         self.assertIn("user: new question", text)
         self.assertNotIn("old question", text)
 
     def test_history_prefers_the_newest_turns_when_tight(self) -> None:
-        t = threads.create(tenant="d", user="a")
+        t = threads.create(tenant="default", user="a")
         for i in range(20):
             threads.append(t["id"], "user", f"message number {i} " + "x" * 200)
-        text = threads.history_text(threads.get(t["id"], "d", "a"), max_tokens=200)
+        text = threads.history_text(threads.get(t["id"], "default", "a"), max_tokens=200)
         self.assertIn("message number 19", text)
         self.assertNotIn("message number 0 ", text)
 
 
 class FoldThreadTests(StateCase):
     def fill(self, turns: int = 12, size: int = 600):
-        t = threads.create(tenant="d", user="a")
+        t = threads.create(tenant="default", user="a")
         for i in range(turns):
             threads.append(t["id"], "user" if i % 2 == 0 else "assistant", f"turn {i} " + "w" * size)
         return t
 
     def test_below_the_trigger_nothing_happens(self) -> None:
         t = self.fill(turns=2, size=10)
-        self.assertEqual(summarizer.fold_thread(t["id"], "d", "a")["reason"], "below_trigger")
-        self.assertEqual(threads.get(t["id"], "d", "a")["summary"], "")
+        self.assertEqual(summarizer.fold_thread(t["id"], "default", "a")["reason"], "below_trigger")
+        self.assertEqual(threads.get(t["id"], "default", "a")["summary"], "")
 
     def test_above_the_trigger_old_turns_fold_and_the_tail_stays(self) -> None:
         ss.set_value("memory.summary_trigger_tokens", 500, "test")
         t = self.fill()
         gateway = FakeGateway(["Goal: x. Facts: turns 0 1 2 3 4 5 6 7."])
         with installed_runtime(gateway):
-            out = summarizer.fold_thread(t["id"], "d", "a", keep_tail=4)
+            out = summarizer.fold_thread(t["id"], "default", "a", keep_tail=4)
         self.assertEqual((out["folded"], out["reason"]), (8, "ok"))
-        thread = threads.get(t["id"], "d", "a")
+        thread = threads.get(t["id"], "default", "a")
         self.assertIn("Goal: x.", thread["summary"])
         remaining = threads.messages(t["id"], after_id=thread["summary_upto"])
         self.assertEqual([m["content"][:7] for m in remaining], ["turn 8 ", "turn 9 ", "turn 10", "turn 11"])
@@ -105,9 +105,9 @@ class FoldThreadTests(StateCase):
         ss.set_value("memory.summary_trigger_tokens", 500, "test")
         t = self.fill()
         with installed_runtime(FakeGateway(error=TimeoutError_("slow"))):
-            out = summarizer.fold_thread(t["id"], "d", "a", keep_tail=4)
+            out = summarizer.fold_thread(t["id"], "default", "a", keep_tail=4)
         self.assertTrue(out["reason"].startswith("extractive("))
-        thread = threads.get(t["id"], "d", "a")
+        thread = threads.get(t["id"], "default", "a")
         self.assertIn("- user: turn 0", thread["summary"])
         self.assertLess(threads.unsummarized_tokens(thread), 1500)
 
@@ -116,20 +116,20 @@ class FoldThreadTests(StateCase):
         t = self.fill()
         gateway = FakeGateway(["First summary mentions 0 1 2 3 4 5 6 7.", "Second summary mentions 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15."])
         with installed_runtime(gateway):
-            summarizer.fold_thread(t["id"], "d", "a", keep_tail=4)
+            summarizer.fold_thread(t["id"], "default", "a", keep_tail=4)
             for i in range(12, 20):
                 threads.append(t["id"], "user", f"turn {i} " + "w" * 600)
-            summarizer.fold_thread(t["id"], "d", "a", keep_tail=4)
+            summarizer.fold_thread(t["id"], "default", "a", keep_tail=4)
         second_input = gateway.calls[1]["messages"][0]["content"]
         self.assertIn("Earlier summary:\nFirst summary", second_input)  # new summary builds on the old one
         self.assertNotIn("turn 0 ", second_input)  # already-folded turns are not re-read
-        self.assertIn("Second summary", threads.get(t["id"], "d", "a")["summary"])
+        self.assertIn("Second summary", threads.get(t["id"], "default", "a")["summary"])
 
     def test_it_never_raises_and_respects_the_memory_switch(self) -> None:
         ss.set_value("memory.enabled", False, "test")
-        self.assertEqual(summarizer.fold_thread("thr_none", "d", "a")["reason"], "memory_disabled")
+        self.assertEqual(summarizer.fold_thread("thr_none", "default", "a")["reason"], "memory_disabled")
         ss.set_value("memory.enabled", True, "test")
-        self.assertEqual(summarizer.fold_thread("thr_none", "d", "a")["reason"], "unknown_thread")
+        self.assertEqual(summarizer.fold_thread("thr_none", "default", "a")["reason"], "unknown_thread")
 
 
 class SkillScopeTests(unittest.TestCase):

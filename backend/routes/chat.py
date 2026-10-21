@@ -21,14 +21,14 @@ def sse(payload: dict) -> str:
     return f"data: {json.dumps(payload, default=str)}\n\n"
 
 
-def _prepare(req: ChatRequest) -> tuple[str, str | None]:
-    text = service.check_input(req.message)
-    return service.parse_pin(text, req.pin_agent, None)
+def _prepare(req: ChatRequest, identity: Identity) -> tuple[str, str | None]:
+    text = service.check_input(req.message, identity.tenant)
+    return service.parse_pin(text, req.pin_agent, None, identity.tenant)
 
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, identity: Identity = Depends(current_identity)) -> ChatResponse:
-    text, pin = _prepare(req)
+    text, pin = _prepare(req, identity)
     result = service.run(identity, text, allowed_agents=req.allowed_agents, pin_agent=pin, thread_id=req.thread_id)
     tasks = [
         TaskInfo(
@@ -53,7 +53,7 @@ def chat(req: ChatRequest, identity: Identity = Depends(current_identity)) -> Ch
 
 @router.post("/chat/stream")
 def chat_stream(req: ChatRequest, identity: Identity = Depends(current_identity)) -> StreamingResponse:
-    text, pin = _prepare(req)
+    text, pin = _prepare(req, identity)
 
     def generate() -> Iterator[str]:
         try:

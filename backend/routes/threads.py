@@ -23,8 +23,8 @@ class ThreadRename(BaseModel):
     title: str = Field(min_length=1, max_length=200)
 
 
-def _enabled() -> None:
-    if not effective("memory.enabled"):
+def _enabled(identity: Identity) -> None:
+    if not effective("memory.enabled", identity.tenant):
         raise ApiError(409, "memory_disabled", "Conversation memory is disabled by the administrator")
 
 
@@ -39,13 +39,13 @@ def _own(thread_id: str, identity: Identity) -> dict[str, Any]:
 def list_threads(
     limit: int = Query(default=50, ge=1, le=200), identity: Identity = Depends(current_identity)
 ) -> list[dict[str, Any]]:
-    _enabled()
+    _enabled(identity)
     return threads.list_for(tenant=identity.tenant, user=identity.username, limit=limit)
 
 
 @router.post("", status_code=201)
 def create_thread(body: ThreadCreate, identity: Identity = Depends(current_identity)) -> dict[str, Any]:
-    _enabled()
+    _enabled(identity)
     return threads.create(tenant=identity.tenant, user=identity.username, title=body.title)
 
 
@@ -56,7 +56,7 @@ def thread_messages(
     limit: Optional[int] = Query(default=None, ge=1, le=1000),
     identity: Identity = Depends(current_identity),
 ) -> dict[str, Any]:
-    _enabled()
+    _enabled(identity)
     thread = _own(thread_id, identity)
     return {
         "id": thread["id"],
@@ -68,7 +68,7 @@ def thread_messages(
 
 @router.patch("/{thread_id}")
 def rename_thread(thread_id: str, body: ThreadRename, identity: Identity = Depends(current_identity)) -> dict[str, Any]:
-    _enabled()
+    _enabled(identity)
     _own(thread_id, identity)
     threads.rename(thread_id, identity.tenant, identity.username, body.title)
     return _own(thread_id, identity)
@@ -76,7 +76,7 @@ def rename_thread(thread_id: str, body: ThreadRename, identity: Identity = Depen
 
 @router.delete("/{thread_id}")
 def delete_thread(thread_id: str, identity: Identity = Depends(current_identity)) -> dict[str, Any]:
-    _enabled()
+    _enabled(identity)
     if not threads.delete(thread_id, identity.tenant, identity.username):
         raise ApiError(404, "not_found", "Unknown thread")
     return {"ok": True, "id": thread_id}

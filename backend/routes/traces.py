@@ -8,7 +8,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
-from backend.deps import Identity, current_identity
+from backend.deps import Identity, current_identity, in_scope
 from backend.errors import ApiError
 from backend.schemas import TraceOut, TraceSummary
 from harness.config import TRACES_DIR
@@ -25,10 +25,11 @@ def _authorise(request_id: str, identity: Identity) -> dict[str, Any]:
     """Return trace metadata if the caller may read it. Unknown and foreign traces both give 404."""
     meta = get_tracer().read_meta(request_id)
     if meta is None:
-        if identity.is_admin and (TRACES_DIR / f"{_safe(request_id)}.jsonl").exists():
+        # A trace with no metadata has no known owner, so only the platform administrator may read it.
+        if identity.is_platform_admin and (TRACES_DIR / f"{_safe(request_id)}.jsonl").exists():
             return {}
         raise ApiError(404, "not_found", "Trace not found")
-    if meta.get("tenant", "default") != identity.tenant and not identity.is_admin:
+    if not in_scope(identity, str(meta.get("tenant") or "default")):
         raise ApiError(404, "not_found", "Trace not found")
     if meta.get("user") != identity.username and not identity.is_admin:
         raise ApiError(404, "not_found", "Trace not found")

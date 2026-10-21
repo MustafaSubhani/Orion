@@ -10,7 +10,8 @@
       "tables": ["orders", "customers"],
       "sensitive_columns": { "limited": ["email", "ssn"] },
       "row_cap": 200,
-      "statement_timeout_s": 15
+      "statement_timeout_s": 15,
+      "tenants": ["default", "acme"]
     },
     {
       "id": "exports",

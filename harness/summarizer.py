@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from typing import Any, Optional
 
-from harness import threads
+from harness import tenancy, threads
 from harness.context import RequestContext, is_product, new_context
 from harness.errors import HarnessError
 from harness.settings_store import effective
@@ -103,8 +103,17 @@ def fold_thread(thread_id: str, tenant: str, user: str, *, keep_tail: int = 6, f
     """Fold the oldest unsummarized turns of a thread into its rolling summary.
 
     Runs only when the thread has grown past `memory.summary_trigger_tokens` (or `force`). The newest
-    `keep_tail` turns stay verbatim. Returns `{"folded": n, "reason": ...}`; never raises.
+    `keep_tail` turns stay verbatim. Runs under the thread's tenant, so that tenant's settings apply.
+    Returns `{"folded": n, "reason": ...}`; never raises.
     """
+    try:
+        with tenancy.use(tenant):
+            return _fold_thread(thread_id, tenant, user, keep_tail=keep_tail, force=force)
+    except Exception as exc:  # background housekeeping must never take chat down
+        return {"folded": 0, "reason": f"error:{type(exc).__name__}"}
+
+
+def _fold_thread(thread_id: str, tenant: str, user: str, *, keep_tail: int, force: bool) -> dict[str, Any]:
     try:
         if not effective("memory.enabled"):
             return {"folded": 0, "reason": "memory_disabled"}

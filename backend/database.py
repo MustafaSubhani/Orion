@@ -22,6 +22,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from harness import tenancy
+
 ROLE_SUPER_USER = "super_user"
 ROLE_LIMITED = "limited"
 ROLES = (ROLE_SUPER_USER, ROLE_LIMITED)
@@ -166,13 +168,51 @@ def validate_password_strength(password: str) -> Optional[str]:
 
 
 def create_user(username: str, password: str, role: str = ROLE_LIMITED, tenant: str = DEFAULT_TENANT) -> bool:
+    """Create a user. False if the role is unknown or the username is taken; `TenantError` for a bad tenant id."""
     if role not in ROLES:
         return False
+    tenant = tenancy.slug(tenant)  # tenant ids become directory and collection names, so they are validated here
     conn = get_connection()
     try:
         conn.execute(
             "INSERT INTO users (username, password_hash, role, tenant) VALUES (?, ?, ?, ?)",
             (username, hash_password(password), role, tenant),
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+#: Password hash of accounts provisioned by an identity provider. It is not a valid scrypt string and can
+#: never equal a SHA-256 digest, so no password verifies against it. It also marks the account as
+#: IdP-managed, so a local account with the same name is never taken over by a token.
+EXTERNAL_HASH = "!external"
+
+
+def get_user_row(username: str) -> Optional[dict]:
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT username, role, tenant, is_active, password_hash FROM users WHERE username = ?", (username,)
+        ).fetchone()
+    finally:
+        conn.close()
+    return dict(row) if row else None
+
+
+def create_external_user(username: str, role: str, tenant: str) -> bool:
+    """Provision an IdP-managed account (no usable password). False if the name is taken."""
+    if role not in ROLES:
+        return False
+    tenant = tenancy.slug(tenant)
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO users (username, password_hash, role, tenant) VALUES (?, ?, ?, ?)",
+            (username, EXTERNAL_HASH, role, tenant),
         )
         conn.commit()
         return True
