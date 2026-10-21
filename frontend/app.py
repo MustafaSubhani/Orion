@@ -28,11 +28,26 @@ from harness.agent_registry import get_agent
 API_BASE_URL = os.getenv("ORION_API_BASE", "http://localhost:8000")
 
 
-def api_headers() -> dict:
+_GRADIO_TOKENS: dict[str, str] = {}
+
+
+def api_headers(username: str | None = None) -> dict:
+    """Bearer for the API: the service key if set, else a session minted for the signed-in user.
+
+    This UI runs next to the API and shares the auth database, so it can mint a session directly.
+    """
     key = os.getenv("ORION_API_KEY", "").strip()
-    if not key:
+    if key:
+        return {"Authorization": f"Bearer {key}"}
+    if not username or username == "system":
         return {}
-    return {"Authorization": f"Bearer {key}"}
+    from backend.database import create_session, get_session
+
+    token = _GRADIO_TOKENS.get(username)
+    if not token or get_session(token) is None:
+        token = create_session(username, get_user_role(username) or ROLE_LIMITED)
+        _GRADIO_TOKENS[username] = token
+    return {"Authorization": f"Bearer {token}"}
 
 
 def harness_role(ui_role: str | None) -> str | None:
@@ -1007,7 +1022,7 @@ with gr.Blocks(title="Orion", css=custom_css, theme=theme) as demo:
                     f"{API_BASE_URL}/ingest",
                     files=multipart,
                     data={"user": username or "chat"},
-                    headers=api_headers(),
+                    headers=api_headers(username),
                     timeout=120,
                 )
             except Exception as exc:
@@ -1068,7 +1083,7 @@ with gr.Blocks(title="Orion", css=custom_css, theme=theme) as demo:
                     "user": username or "system",
                     "role": harness_role(role),
                 },
-                headers=api_headers(),
+                headers=api_headers(username),
                 stream=True,
                 timeout=600
             )

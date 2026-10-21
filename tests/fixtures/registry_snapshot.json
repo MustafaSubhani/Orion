@@ -1,0 +1,3331 @@
+{
+  "allowed_entities": [
+    "MSFT",
+    "AAPL",
+    "MNC",
+    "FRED",
+    "SYNTH_CAL",
+    "KB"
+  ],
+  "card_tools": {
+    "chart": [
+      {
+        "function": {
+          "description": "Constrained aggregation. Never send Python. Tables: hr, applfin, fred_cpi, fred_fedfunds, fred_umcsent, calendar.",
+          "name": "sql_spec",
+          "parameters": {
+            "properties": {
+              "agg": {
+                "type": "object"
+              },
+              "columns": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "filters": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "group_by": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "sort": {
+                "type": "object"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Render a chart from a sql_spec-like spec. graph_type: bar|line|pie|scatter.",
+          "name": "render_chart",
+          "parameters": {
+            "properties": {
+              "filters": {
+                "type": "array"
+              },
+              "graph_type": {
+                "description": "bar|line|pie|scatter",
+                "type": "string"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              },
+              "title": {
+                "description": "title",
+                "type": "string"
+              },
+              "x": {
+                "description": "x column",
+                "type": "string"
+              },
+              "y": {
+                "description": "y column",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Unique values and counts for a column (departments, locations, organizers, \u2026).",
+          "name": "distinct_values",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "column name",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List available tool verbs and one-line descriptions.",
+          "name": "search_tools",
+          "parameters": {
+            "properties": {
+              "query": {
+                "description": "optional filter",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Expand a compacted artifact_id from this request. Use when a tool stub is missing detail.",
+          "name": "session_get",
+          "parameters": {
+            "properties": {
+              "artifact_id": {
+                "description": "id from a [compacted artifact:\u2026] stub",
+                "type": "string"
+              },
+              "max_chars": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "artifact_id"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Procedural memory: list/get saved SKILL.md files, or create/archive one after a working fix. op=list|get|create|archive. Limited roles cannot create or archive.",
+          "name": "skill_manage",
+          "parameters": {
+            "properties": {
+              "description": {
+                "description": "when to apply this skill",
+                "type": "string"
+              },
+              "name": {
+                "description": "skill slug",
+                "type": "string"
+              },
+              "op": {
+                "description": "list|get|create|archive",
+                "type": "string"
+              },
+              "procedure": {
+                "description": "the working steps / corrected spec",
+                "type": "string"
+              },
+              "query": {
+                "description": "optional filter for list",
+                "type": "string"
+              },
+              "verbs": {
+                "description": "comma-separated tool verbs",
+                "type": "string"
+              }
+            },
+            "required": [
+              "op"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List frozen tables or one table's real columns, dtypes, entity tag, and sample values. Call this before sql_spec if a column name is uncertain (F4).",
+          "name": "schema_lookup",
+          "parameters": {
+            "properties": {
+              "table": {
+                "description": "optional table; omit to list all",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether entity tags may appear in one answer. Legal: AAPL+FRED, MSFT+FRED, SYNTH_CAL+AAPL. Illegal: MNC payroll with MSFT 10-K.",
+          "name": "join_check",
+          "parameters": {
+            "properties": {
+              "entities": {
+                "description": "comma-separated tags, e.g. MNC,MSFT",
+                "type": "string"
+              }
+            },
+            "required": [
+              "entities"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether claim strings (usually numbers) appear in this request's tool artifacts. Use before answering with a number you did not just compute.",
+          "name": "evidence_check",
+          "parameters": {
+            "properties": {
+              "claims": {
+                "description": "comma-separated claims or numbers",
+                "type": "string"
+              },
+              "text": {
+                "description": "optional extra evidence blob",
+                "type": "string"
+              }
+            },
+            "required": [
+              "claims"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      }
+    ],
+    "finance": [
+      {
+        "function": {
+          "description": "Retrieve evidence chunks. Optional entity filter (MNC|AAPL|MSFT|FRED|SYNTH_CAL).",
+          "name": "retrieve",
+          "parameters": {
+            "properties": {
+              "collection": {
+                "description": "hr_data | finance_data | scheduler_data",
+                "type": "string"
+              },
+              "entity": {
+                "description": "optional entity tag",
+                "type": "string"
+              },
+              "k": {
+                "maximum": 20,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "query": {
+                "description": "search query",
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Constrained aggregation. Never send Python. Tables: hr, applfin, fred_cpi, fred_fedfunds, fred_umcsent, calendar.",
+          "name": "sql_spec",
+          "parameters": {
+            "properties": {
+              "agg": {
+                "type": "object"
+              },
+              "columns": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "filters": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "group_by": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "sort": {
+                "type": "object"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "ARIMA forecast on a numeric column of applfin or a FRED table.",
+          "name": "forecast",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "numeric column",
+                "type": "string"
+              },
+              "periods": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "table": {
+                "description": "applfin | fred_cpi | fred_fedfunds | fred_umcsent",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Z-score anomaly detection on a numeric column.",
+          "name": "anomaly_detect",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "numeric column",
+                "type": "string"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              },
+              "threshold": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "GET an allow-listed URL (SEC, FRED, Apple, Microsoft). No secrets in the sandbox.",
+          "name": "http_fetch",
+          "parameters": {
+            "properties": {
+              "max_bytes": {
+                "type": "integer"
+              },
+              "url": {
+                "description": "https url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Compare two numeric columns (optionally aligned on DATE). Returns last values, n, correlation.",
+          "name": "compare_series",
+          "parameters": {
+            "properties": {
+              "column_a": {
+                "description": "first numeric column",
+                "type": "string"
+              },
+              "column_b": {
+                "description": "second numeric column",
+                "type": "string"
+              },
+              "table_a": {
+                "description": "first table",
+                "type": "string"
+              },
+              "table_b": {
+                "description": "second table (defaults to table_a)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table_a",
+              "column_a",
+              "column_b"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Numeric summary: count, mean, std, min, p25, median, p75, max, nulls.",
+          "name": "describe_column",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "numeric column",
+                "type": "string"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Unique values and counts for a column (departments, locations, organizers, \u2026).",
+          "name": "distinct_values",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "column name",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Search the frozen AAPL product catalog (not MNC payroll). For how-many questions, use match_count / COUNT= in the preview \u2014 never the `rows` preview cap (max 40).",
+          "name": "product_search",
+          "parameters": {
+            "properties": {
+              "category": {
+                "description": "category contains, e.g. iPhone",
+                "type": "string"
+              },
+              "in_stock": {
+                "type": "boolean"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "max_price": {
+                "type": "number"
+              },
+              "min_price": {
+                "type": "number"
+              },
+              "query": {
+                "description": "model_name or category substring",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Latest FRED observation(s). Omit table for CPI + Fed Funds + UMCSENT together.",
+          "name": "macro_latest",
+          "parameters": {
+            "properties": {
+              "table": {
+                "description": "fred_cpi | fred_fedfunds | fred_umcsent | omit for all",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Stats for a numeric column between date_from and date_to (inclusive, YYYY-MM-DD prefixes).",
+          "name": "series_window",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "numeric column",
+                "type": "string"
+              },
+              "date_from": {
+                "description": "YYYY-MM-DD prefix",
+                "type": "string"
+              },
+              "date_to": {
+                "description": "YYYY-MM-DD prefix",
+                "type": "string"
+              },
+              "table": {
+                "description": "fred_* | applfin",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Exact FRED DATE (YYYY-MM-DD) or ApplFin year+quarter value. Prefer this over sql_spec for one-point lookups.",
+          "name": "date_at",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "CPIAUCSL | DFF | UMCSENT | NetSales_Total | ...",
+                "type": "string"
+              },
+              "date": {
+                "description": "YYYY-MM-DD for FRED",
+                "type": "string"
+              },
+              "period": {
+                "description": "optional '2020 Q3' / 'Q3 2020' if year+quarter are not split",
+                "type": "string"
+              },
+              "quarter": {
+                "description": "1-4 or Q1-Q4",
+                "type": "string"
+              },
+              "table": {
+                "description": "fred_cpi | fred_fedfunds | fred_umcsent | applfin",
+                "type": "string"
+              },
+              "year": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Top/bottom n rows by a numeric column after optional filters. Salary hidden for limited roles.",
+          "name": "top_n",
+          "parameters": {
+            "properties": {
+              "ascending": {
+                "type": "boolean"
+              },
+              "category": {
+                "description": "optional products category",
+                "type": "string"
+              },
+              "column": {
+                "description": "numeric sort column",
+                "type": "string"
+              },
+              "department": {
+                "description": "optional HR Department filter",
+                "type": "string"
+              },
+              "n": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "hr | applfin | products | fred_*",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List available tool verbs and one-line descriptions.",
+          "name": "search_tools",
+          "parameters": {
+            "properties": {
+              "query": {
+                "description": "optional filter",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Expand a compacted artifact_id from this request. Use when a tool stub is missing detail.",
+          "name": "session_get",
+          "parameters": {
+            "properties": {
+              "artifact_id": {
+                "description": "id from a [compacted artifact:\u2026] stub",
+                "type": "string"
+              },
+              "max_chars": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "artifact_id"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Procedural memory: list/get saved SKILL.md files, or create/archive one after a working fix. op=list|get|create|archive. Limited roles cannot create or archive.",
+          "name": "skill_manage",
+          "parameters": {
+            "properties": {
+              "description": {
+                "description": "when to apply this skill",
+                "type": "string"
+              },
+              "name": {
+                "description": "skill slug",
+                "type": "string"
+              },
+              "op": {
+                "description": "list|get|create|archive",
+                "type": "string"
+              },
+              "procedure": {
+                "description": "the working steps / corrected spec",
+                "type": "string"
+              },
+              "query": {
+                "description": "optional filter for list",
+                "type": "string"
+              },
+              "verbs": {
+                "description": "comma-separated tool verbs",
+                "type": "string"
+              }
+            },
+            "required": [
+              "op"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List frozen tables or one table's real columns, dtypes, entity tag, and sample values. Call this before sql_spec if a column name is uncertain (F4).",
+          "name": "schema_lookup",
+          "parameters": {
+            "properties": {
+              "table": {
+                "description": "optional table; omit to list all",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether entity tags may appear in one answer. Legal: AAPL+FRED, MSFT+FRED, SYNTH_CAL+AAPL. Illegal: MNC payroll with MSFT 10-K.",
+          "name": "join_check",
+          "parameters": {
+            "properties": {
+              "entities": {
+                "description": "comma-separated tags, e.g. MNC,MSFT",
+                "type": "string"
+              }
+            },
+            "required": [
+              "entities"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether claim strings (usually numbers) appear in this request's tool artifacts. Use before answering with a number you did not just compute.",
+          "name": "evidence_check",
+          "parameters": {
+            "properties": {
+              "claims": {
+                "description": "comma-separated claims or numbers",
+                "type": "string"
+              },
+              "text": {
+                "description": "optional extra evidence blob",
+                "type": "string"
+              }
+            },
+            "required": [
+              "claims"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      }
+    ],
+    "hr": [
+      {
+        "function": {
+          "description": "Retrieve evidence chunks. Optional entity filter (MNC|AAPL|MSFT|FRED|SYNTH_CAL).",
+          "name": "retrieve",
+          "parameters": {
+            "properties": {
+              "collection": {
+                "description": "hr_data | finance_data | scheduler_data",
+                "type": "string"
+              },
+              "entity": {
+                "description": "optional entity tag",
+                "type": "string"
+              },
+              "k": {
+                "maximum": 20,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "query": {
+                "description": "search query",
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Constrained aggregation. Never send Python. Tables: hr, applfin, fred_cpi, fred_fedfunds, fred_umcsent, calendar.",
+          "name": "sql_spec",
+          "parameters": {
+            "properties": {
+              "agg": {
+                "type": "object"
+              },
+              "columns": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "filters": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "group_by": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "sort": {
+                "type": "object"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Render a chart from a sql_spec-like spec. graph_type: bar|line|pie|scatter.",
+          "name": "render_chart",
+          "parameters": {
+            "properties": {
+              "filters": {
+                "type": "array"
+              },
+              "graph_type": {
+                "description": "bar|line|pie|scatter",
+                "type": "string"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              },
+              "title": {
+                "description": "title",
+                "type": "string"
+              },
+              "x": {
+                "description": "x column",
+                "type": "string"
+              },
+              "y": {
+                "description": "y column",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Unique values and counts for a column (departments, locations, organizers, \u2026).",
+          "name": "distinct_values",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "column name",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Numeric summary: count, mean, std, min, p25, median, p75, max, nulls.",
+          "name": "describe_column",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "numeric column",
+                "type": "string"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Fetch rows by exact key (Employee_ID, event_id, DATE, \u2026). Prefer this over a full scan.",
+          "name": "row_lookup",
+          "parameters": {
+            "properties": {
+              "key_column": {
+                "description": "column to match",
+                "type": "string"
+              },
+              "key_value": {
+                "description": "exact value",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "key_column",
+              "key_value"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "HR slice over the MNC payroll table. Filter department / location / status / work_mode / job_title (Sales, Marketing, IT, Engineering, HR, \u2026 are Department values, not separate lakes). Optional group_by. count_only=true for a single integer.",
+          "name": "workforce_slice",
+          "parameters": {
+            "properties": {
+              "agg": {
+                "description": "count | mean | avg | sum | min | max. Use mean for average Salary_INR",
+                "type": "string"
+              },
+              "column": {
+                "description": "numeric column for agg, default Salary_INR",
+                "type": "string"
+              },
+              "count_only": {
+                "type": "boolean"
+              },
+              "department": {
+                "description": "Department contains, e.g. IT or Marketing",
+                "type": "string"
+              },
+              "group_by": {
+                "description": "optional column to break counts on",
+                "type": "string"
+              },
+              "job_title": {
+                "description": "Job_Title contains",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "location": {
+                "description": "Location contains",
+                "type": "string"
+              },
+              "status": {
+                "description": "Status contains, e.g. Active",
+                "type": "string"
+              },
+              "work_mode": {
+                "description": "Work_Mode contains, e.g. Remote",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Ratio of matching rows to a base slice (e.g. Remote / all in IT). No free Python.",
+          "name": "ratio_agg",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "numerator column",
+                "type": "string"
+              },
+              "department": {
+                "description": "optional base Department filter",
+                "type": "string"
+              },
+              "location": {
+                "description": "optional Location filter",
+                "type": "string"
+              },
+              "status": {
+                "description": "optional Status filter on the base",
+                "type": "string"
+              },
+              "table": {
+                "description": "default hr",
+                "type": "string"
+              },
+              "value": {
+                "description": "numerator value (contains)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "column",
+              "value"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Top/bottom n rows by a numeric column after optional filters. Salary hidden for limited roles.",
+          "name": "top_n",
+          "parameters": {
+            "properties": {
+              "ascending": {
+                "type": "boolean"
+              },
+              "category": {
+                "description": "optional products category",
+                "type": "string"
+              },
+              "column": {
+                "description": "numeric sort column",
+                "type": "string"
+              },
+              "department": {
+                "description": "optional HR Department filter",
+                "type": "string"
+              },
+              "n": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "hr | applfin | products | fred_*",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List available tool verbs and one-line descriptions.",
+          "name": "search_tools",
+          "parameters": {
+            "properties": {
+              "query": {
+                "description": "optional filter",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Expand a compacted artifact_id from this request. Use when a tool stub is missing detail.",
+          "name": "session_get",
+          "parameters": {
+            "properties": {
+              "artifact_id": {
+                "description": "id from a [compacted artifact:\u2026] stub",
+                "type": "string"
+              },
+              "max_chars": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "artifact_id"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Procedural memory: list/get saved SKILL.md files, or create/archive one after a working fix. op=list|get|create|archive. Limited roles cannot create or archive.",
+          "name": "skill_manage",
+          "parameters": {
+            "properties": {
+              "description": {
+                "description": "when to apply this skill",
+                "type": "string"
+              },
+              "name": {
+                "description": "skill slug",
+                "type": "string"
+              },
+              "op": {
+                "description": "list|get|create|archive",
+                "type": "string"
+              },
+              "procedure": {
+                "description": "the working steps / corrected spec",
+                "type": "string"
+              },
+              "query": {
+                "description": "optional filter for list",
+                "type": "string"
+              },
+              "verbs": {
+                "description": "comma-separated tool verbs",
+                "type": "string"
+              }
+            },
+            "required": [
+              "op"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List frozen tables or one table's real columns, dtypes, entity tag, and sample values. Call this before sql_spec if a column name is uncertain (F4).",
+          "name": "schema_lookup",
+          "parameters": {
+            "properties": {
+              "table": {
+                "description": "optional table; omit to list all",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether entity tags may appear in one answer. Legal: AAPL+FRED, MSFT+FRED, SYNTH_CAL+AAPL. Illegal: MNC payroll with MSFT 10-K.",
+          "name": "join_check",
+          "parameters": {
+            "properties": {
+              "entities": {
+                "description": "comma-separated tags, e.g. MNC,MSFT",
+                "type": "string"
+              }
+            },
+            "required": [
+              "entities"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether claim strings (usually numbers) appear in this request's tool artifacts. Use before answering with a number you did not just compute.",
+          "name": "evidence_check",
+          "parameters": {
+            "properties": {
+              "claims": {
+                "description": "comma-separated claims or numbers",
+                "type": "string"
+              },
+              "text": {
+                "description": "optional extra evidence blob",
+                "type": "string"
+              }
+            },
+            "required": [
+              "claims"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      }
+    ],
+    "scheduler": [
+      {
+        "function": {
+          "description": "Retrieve evidence chunks. Optional entity filter (MNC|AAPL|MSFT|FRED|SYNTH_CAL).",
+          "name": "retrieve",
+          "parameters": {
+            "properties": {
+              "collection": {
+                "description": "hr_data | finance_data | scheduler_data",
+                "type": "string"
+              },
+              "entity": {
+                "description": "optional entity tag",
+                "type": "string"
+              },
+              "k": {
+                "maximum": 20,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "query": {
+                "description": "search query",
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Query frozen calendar rows by organizer, date, title, attendee, or event_id. Returns match_count of the full filter; set count_only=true for the integer count.",
+          "name": "calendar_query",
+          "parameters": {
+            "properties": {
+              "attendee": {
+                "description": "optional attendee substring",
+                "type": "string"
+              },
+              "count_only": {
+                "description": "return match_count without row payloads",
+                "type": "boolean"
+              },
+              "date_prefix": {
+                "description": "YYYY-MM-DD prefix of start_time",
+                "type": "string"
+              },
+              "event_id": {
+                "description": "optional exact event_id",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "organizer": {
+                "description": "optional organizer substring",
+                "type": "string"
+              },
+              "title_contains": {
+                "description": "optional title substring",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Overlapping SYNTH_CAL events for an organizer and/or date prefix. Requires organizer or date_prefix.",
+          "name": "calendar_conflicts",
+          "parameters": {
+            "properties": {
+              "date_prefix": {
+                "description": "YYYY-MM-DD prefix of start_time",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "organizer": {
+                "description": "organizer substring",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Fetch rows by exact key (Employee_ID, event_id, DATE, \u2026). Prefer this over a full scan.",
+          "name": "row_lookup",
+          "parameters": {
+            "properties": {
+              "key_column": {
+                "description": "column to match",
+                "type": "string"
+              },
+              "key_value": {
+                "description": "exact value",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "key_column",
+              "key_value"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List available tool verbs and one-line descriptions.",
+          "name": "search_tools",
+          "parameters": {
+            "properties": {
+              "query": {
+                "description": "optional filter",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Expand a compacted artifact_id from this request. Use when a tool stub is missing detail.",
+          "name": "session_get",
+          "parameters": {
+            "properties": {
+              "artifact_id": {
+                "description": "id from a [compacted artifact:\u2026] stub",
+                "type": "string"
+              },
+              "max_chars": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "artifact_id"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Procedural memory: list/get saved SKILL.md files, or create/archive one after a working fix. op=list|get|create|archive. Limited roles cannot create or archive.",
+          "name": "skill_manage",
+          "parameters": {
+            "properties": {
+              "description": {
+                "description": "when to apply this skill",
+                "type": "string"
+              },
+              "name": {
+                "description": "skill slug",
+                "type": "string"
+              },
+              "op": {
+                "description": "list|get|create|archive",
+                "type": "string"
+              },
+              "procedure": {
+                "description": "the working steps / corrected spec",
+                "type": "string"
+              },
+              "query": {
+                "description": "optional filter for list",
+                "type": "string"
+              },
+              "verbs": {
+                "description": "comma-separated tool verbs",
+                "type": "string"
+              }
+            },
+            "required": [
+              "op"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List frozen tables or one table's real columns, dtypes, entity tag, and sample values. Call this before sql_spec if a column name is uncertain (F4).",
+          "name": "schema_lookup",
+          "parameters": {
+            "properties": {
+              "table": {
+                "description": "optional table; omit to list all",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether entity tags may appear in one answer. Legal: AAPL+FRED, MSFT+FRED, SYNTH_CAL+AAPL. Illegal: MNC payroll with MSFT 10-K.",
+          "name": "join_check",
+          "parameters": {
+            "properties": {
+              "entities": {
+                "description": "comma-separated tags, e.g. MNC,MSFT",
+                "type": "string"
+              }
+            },
+            "required": [
+              "entities"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether claim strings (usually numbers) appear in this request's tool artifacts. Use before answering with a number you did not just compute.",
+          "name": "evidence_check",
+          "parameters": {
+            "properties": {
+              "claims": {
+                "description": "comma-separated claims or numbers",
+                "type": "string"
+              },
+              "text": {
+                "description": "optional extra evidence blob",
+                "type": "string"
+              }
+            },
+            "required": [
+              "claims"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      }
+    ],
+    "sql": [
+      {
+        "function": {
+          "description": "Constrained aggregation. Never send Python. Tables: hr, applfin, fred_cpi, fred_fedfunds, fred_umcsent, calendar.",
+          "name": "sql_spec",
+          "parameters": {
+            "properties": {
+              "agg": {
+                "type": "object"
+              },
+              "columns": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "filters": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "group_by": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "sort": {
+                "type": "object"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Unique values and counts for a column (departments, locations, organizers, \u2026).",
+          "name": "distinct_values",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "column name",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Numeric summary: count, mean, std, min, p25, median, p75, max, nulls.",
+          "name": "describe_column",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "numeric column",
+                "type": "string"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Fetch rows by exact key (Employee_ID, event_id, DATE, \u2026). Prefer this over a full scan.",
+          "name": "row_lookup",
+          "parameters": {
+            "properties": {
+              "key_column": {
+                "description": "column to match",
+                "type": "string"
+              },
+              "key_value": {
+                "description": "exact value",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "table name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "key_column",
+              "key_value"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "HR slice over the MNC payroll table. Filter department / location / status / work_mode / job_title (Sales, Marketing, IT, Engineering, HR, \u2026 are Department values, not separate lakes). Optional group_by. count_only=true for a single integer.",
+          "name": "workforce_slice",
+          "parameters": {
+            "properties": {
+              "agg": {
+                "description": "count | mean | avg | sum | min | max. Use mean for average Salary_INR",
+                "type": "string"
+              },
+              "column": {
+                "description": "numeric column for agg, default Salary_INR",
+                "type": "string"
+              },
+              "count_only": {
+                "type": "boolean"
+              },
+              "department": {
+                "description": "Department contains, e.g. IT or Marketing",
+                "type": "string"
+              },
+              "group_by": {
+                "description": "optional column to break counts on",
+                "type": "string"
+              },
+              "job_title": {
+                "description": "Job_Title contains",
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "location": {
+                "description": "Location contains",
+                "type": "string"
+              },
+              "status": {
+                "description": "Status contains, e.g. Active",
+                "type": "string"
+              },
+              "work_mode": {
+                "description": "Work_Mode contains, e.g. Remote",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Ratio of matching rows to a base slice (e.g. Remote / all in IT). No free Python.",
+          "name": "ratio_agg",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "numerator column",
+                "type": "string"
+              },
+              "department": {
+                "description": "optional base Department filter",
+                "type": "string"
+              },
+              "location": {
+                "description": "optional Location filter",
+                "type": "string"
+              },
+              "status": {
+                "description": "optional Status filter on the base",
+                "type": "string"
+              },
+              "table": {
+                "description": "default hr",
+                "type": "string"
+              },
+              "value": {
+                "description": "numerator value (contains)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "column",
+              "value"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Top/bottom n rows by a numeric column after optional filters. Salary hidden for limited roles.",
+          "name": "top_n",
+          "parameters": {
+            "properties": {
+              "ascending": {
+                "type": "boolean"
+              },
+              "category": {
+                "description": "optional products category",
+                "type": "string"
+              },
+              "column": {
+                "description": "numeric sort column",
+                "type": "string"
+              },
+              "department": {
+                "description": "optional HR Department filter",
+                "type": "string"
+              },
+              "n": {
+                "type": "integer"
+              },
+              "table": {
+                "description": "hr | applfin | products | fred_*",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Latest FRED observation(s). Omit table for CPI + Fed Funds + UMCSENT together.",
+          "name": "macro_latest",
+          "parameters": {
+            "properties": {
+              "table": {
+                "description": "fred_cpi | fred_fedfunds | fred_umcsent | omit for all",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Stats for a numeric column between date_from and date_to (inclusive, YYYY-MM-DD prefixes).",
+          "name": "series_window",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "numeric column",
+                "type": "string"
+              },
+              "date_from": {
+                "description": "YYYY-MM-DD prefix",
+                "type": "string"
+              },
+              "date_to": {
+                "description": "YYYY-MM-DD prefix",
+                "type": "string"
+              },
+              "table": {
+                "description": "fred_* | applfin",
+                "type": "string"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Exact FRED DATE (YYYY-MM-DD) or ApplFin year+quarter value. Prefer this over sql_spec for one-point lookups.",
+          "name": "date_at",
+          "parameters": {
+            "properties": {
+              "column": {
+                "description": "CPIAUCSL | DFF | UMCSENT | NetSales_Total | ...",
+                "type": "string"
+              },
+              "date": {
+                "description": "YYYY-MM-DD for FRED",
+                "type": "string"
+              },
+              "period": {
+                "description": "optional '2020 Q3' / 'Q3 2020' if year+quarter are not split",
+                "type": "string"
+              },
+              "quarter": {
+                "description": "1-4 or Q1-Q4",
+                "type": "string"
+              },
+              "table": {
+                "description": "fred_cpi | fred_fedfunds | fred_umcsent | applfin",
+                "type": "string"
+              },
+              "year": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "table",
+              "column"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Search the frozen AAPL product catalog (not MNC payroll). For how-many questions, use match_count / COUNT= in the preview \u2014 never the `rows` preview cap (max 40).",
+          "name": "product_search",
+          "parameters": {
+            "properties": {
+              "category": {
+                "description": "category contains, e.g. iPhone",
+                "type": "string"
+              },
+              "in_stock": {
+                "type": "boolean"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "max_price": {
+                "type": "number"
+              },
+              "min_price": {
+                "type": "number"
+              },
+              "query": {
+                "description": "model_name or category substring",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List available tool verbs and one-line descriptions.",
+          "name": "search_tools",
+          "parameters": {
+            "properties": {
+              "query": {
+                "description": "optional filter",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Expand a compacted artifact_id from this request. Use when a tool stub is missing detail.",
+          "name": "session_get",
+          "parameters": {
+            "properties": {
+              "artifact_id": {
+                "description": "id from a [compacted artifact:\u2026] stub",
+                "type": "string"
+              },
+              "max_chars": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "artifact_id"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Procedural memory: list/get saved SKILL.md files, or create/archive one after a working fix. op=list|get|create|archive. Limited roles cannot create or archive.",
+          "name": "skill_manage",
+          "parameters": {
+            "properties": {
+              "description": {
+                "description": "when to apply this skill",
+                "type": "string"
+              },
+              "name": {
+                "description": "skill slug",
+                "type": "string"
+              },
+              "op": {
+                "description": "list|get|create|archive",
+                "type": "string"
+              },
+              "procedure": {
+                "description": "the working steps / corrected spec",
+                "type": "string"
+              },
+              "query": {
+                "description": "optional filter for list",
+                "type": "string"
+              },
+              "verbs": {
+                "description": "comma-separated tool verbs",
+                "type": "string"
+              }
+            },
+            "required": [
+              "op"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List frozen tables or one table's real columns, dtypes, entity tag, and sample values. Call this before sql_spec if a column name is uncertain (F4).",
+          "name": "schema_lookup",
+          "parameters": {
+            "properties": {
+              "table": {
+                "description": "optional table; omit to list all",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether entity tags may appear in one answer. Legal: AAPL+FRED, MSFT+FRED, SYNTH_CAL+AAPL. Illegal: MNC payroll with MSFT 10-K.",
+          "name": "join_check",
+          "parameters": {
+            "properties": {
+              "entities": {
+                "description": "comma-separated tags, e.g. MNC,MSFT",
+                "type": "string"
+              }
+            },
+            "required": [
+              "entities"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Check whether claim strings (usually numbers) appear in this request's tool artifacts. Use before answering with a number you did not just compute.",
+          "name": "evidence_check",
+          "parameters": {
+            "properties": {
+              "claims": {
+                "description": "comma-separated claims or numbers",
+                "type": "string"
+              },
+              "text": {
+                "description": "optional extra evidence blob",
+                "type": "string"
+              }
+            },
+            "required": [
+              "claims"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      }
+    ]
+  },
+  "cards": {
+    "chart": {
+      "collections": [],
+      "created_at": null,
+      "created_by": null,
+      "description": "Charts and visualizations from frozen tables.",
+      "entities": [
+        "MNC",
+        "AAPL",
+        "FRED",
+        "SYNTH_CAL"
+      ],
+      "id": "chart",
+      "input_schema": {},
+      "intent": "chart graph plot visualization bar line pie",
+      "is_builtin": true,
+      "is_custom": false,
+      "latency_class": "fast",
+      "memory_mb": 512,
+      "metadata": {},
+      "module_path": null,
+      "name": "Chart Agent",
+      "output_schema": {},
+      "status": "active",
+      "system_prompt": "You are the Chart worker. Call schema_lookup then render_chart with a spec against a known table (hr, applfin, products, fred_cpi, calendar).\nPick real column names. Do not fabricate data. After the chart, summarize what the spec plotted in one short paragraph.",
+      "timeout_ms": 60000,
+      "tools": [
+        "sql_spec",
+        "render_chart",
+        "distinct_values",
+        "search_tools",
+        "session_get",
+        "skill_manage",
+        "schema_lookup",
+        "join_check",
+        "evidence_check"
+      ],
+      "version": 1
+    },
+    "finance": {
+      "collections": [
+        "finance_data"
+      ],
+      "created_at": null,
+      "created_by": null,
+      "description": "Apple financials, FRED macros, MSFT SEC filings, AAPL product catalog, forecasts, anomalies.",
+      "entities": [
+        "AAPL",
+        "MSFT",
+        "FRED"
+      ],
+      "id": "finance",
+      "input_schema": {},
+      "intent": "revenue netsales CPI FRED SEC 10-K Apple forecast anomaly financials product catalog iPhone price",
+      "is_builtin": true,
+      "is_custom": false,
+      "latency_class": "fast",
+      "memory_mb": 512,
+      "metadata": {},
+      "module_path": null,
+      "name": "Finance Agent",
+      "output_schema": {},
+      "status": "active",
+      "system_prompt": "You are the Finance worker. Entities: AAPL (ApplFin + product catalog), MSFT (SEC filings), FRED (macros).\nNever join MSFT filings to MNC payroll. Legal joins: AAPL+FRED, MSFT+FRED. Call join_check if unsure.\nNumeric facts come from frozen tables, not retrieve. Call schema_lookup then date_at / sql_spec.\ndate_at: FRED DATE as date=YYYY-MM-DD; ApplFin as year + quarter (Q2 and 2 are the same; the Quarter column is 1\u20134), column=NetSales_Total. retrieve is narrative evidence only (SEC/policy).\nUse product_search for Apple SKUs/categories/prices (table `products`). For \"how many catalog rows\", report product_search match_count / COUNT= \u2014 never the preview `rows` cap (that is at most 40).\ndescribe_column / compare_series / top_n / forecast / anomaly_detect when asked.\nCite retrieved chunk ids. Abstain rather than glue incompatible companies. Do not invent numbers.",
+      "timeout_ms": 60000,
+      "tools": [
+        "retrieve",
+        "sql_spec",
+        "forecast",
+        "anomaly_detect",
+        "http_fetch",
+        "compare_series",
+        "describe_column",
+        "distinct_values",
+        "product_search",
+        "macro_latest",
+        "series_window",
+        "date_at",
+        "top_n",
+        "search_tools",
+        "session_get",
+        "skill_manage",
+        "schema_lookup",
+        "join_check",
+        "evidence_check"
+      ],
+      "version": 1
+    },
+    "hr": {
+      "collections": [
+        "hr_data"
+      ],
+      "created_at": null,
+      "created_by": null,
+      "description": "Employee records, departments, salaries, performance, HR policy.",
+      "entities": [
+        "MNC"
+      ],
+      "id": "hr",
+      "input_schema": {},
+      "intent": "employee headcount salary department performance work mode HR policy MNC payroll IT sales marketing engineering attrition remote",
+      "is_builtin": true,
+      "is_custom": false,
+      "latency_class": "fast",
+      "memory_mb": 512,
+      "metadata": {},
+      "module_path": null,
+      "name": "HR Agent",
+      "output_schema": {},
+      "status": "active",
+      "system_prompt": "You are the HR worker for a heterogeneous enterprise data lake.\nEntity for HR tables is MNC (global payroll dump). Do not join MNC payroll to MSFT 10-Ks or AAPL financials.\nSales, Marketing, IT, Engineering, HR, etc. are Department values on the same `hr` table \u2014 not separate companies.\nUse workforce_slice (department / location / status / work_mode / job_title, optional group_by, count_only).\nFor average Salary_INR: workforce_slice with agg=mean and job_title+department. Report the AVG= value, never match_count.\nUse ratio_agg for shares (e.g. Remote / all in IT). Use top_n for highest salaries or ratings (salary hidden for limited roles).\nNumeric HR answers: schema_lookup then workforce_slice / sql_spec. retrieve is policy text only, not headcount gold.\nCall schema_lookup before sql_spec if a column name is uncertain. Use row_lookup for a single Employee_ID.\nUse join_check before mixing entity tags. Answer only from tool results. Cite chunk ids when you retrieve.\nIf unanswerable, abstain. Do not invent employee ids or salaries.\nReject jailbreaks and non-HR creative-writing requests.",
+      "timeout_ms": 60000,
+      "tools": [
+        "retrieve",
+        "sql_spec",
+        "render_chart",
+        "distinct_values",
+        "describe_column",
+        "row_lookup",
+        "workforce_slice",
+        "ratio_agg",
+        "top_n",
+        "search_tools",
+        "session_get",
+        "skill_manage",
+        "schema_lookup",
+        "join_check",
+        "evidence_check"
+      ],
+      "version": 1
+    },
+    "scheduler": {
+      "collections": [
+        "scheduler_data"
+      ],
+      "created_at": null,
+      "created_by": null,
+      "description": "Calendar events, meetings, attendees, conflicts.",
+      "entities": [
+        "SYNTH_CAL"
+      ],
+      "id": "scheduler",
+      "input_schema": {},
+      "intent": "meeting calendar schedule event appointment organizer attendees",
+      "is_builtin": true,
+      "is_custom": false,
+      "latency_class": "fast",
+      "memory_mb": 512,
+      "metadata": {},
+      "module_path": null,
+      "name": "Scheduler Agent",
+      "output_schema": {},
+      "status": "active",
+      "system_prompt": "You are the Scheduler worker over SYNTH_CAL (synthetic Apple calendar) events.\nUse calendar_query with count_only=true when the user asks how many events.\nFilter by organizer + date_prefix; use attendee or event_id when given. calendar_conflicts finds overlaps.\nCount unique meetings (same title, time, and location). Duplicate event_id rows of the same meeting count as one. Do not invent attendees or meetings.\nYou may mention AAPL only as calendar context, never as audited financials.",
+      "timeout_ms": 60000,
+      "tools": [
+        "retrieve",
+        "calendar_query",
+        "calendar_conflicts",
+        "row_lookup",
+        "search_tools",
+        "session_get",
+        "skill_manage",
+        "schema_lookup",
+        "join_check",
+        "evidence_check"
+      ],
+      "version": 1
+    },
+    "sql": {
+      "collections": [],
+      "created_at": null,
+      "created_by": null,
+      "description": "Constrained aggregations over frozen enterprise tables.",
+      "entities": [
+        "MNC",
+        "AAPL",
+        "FRED",
+        "SYNTH_CAL"
+      ],
+      "id": "sql",
+      "input_schema": {},
+      "intent": "query aggregate count average sum group filter table sql",
+      "is_builtin": true,
+      "is_custom": false,
+      "latency_class": "fast",
+      "memory_mb": 512,
+      "metadata": {},
+      "module_path": null,
+      "name": "SQL Agent",
+      "output_schema": {},
+      "status": "active",
+      "system_prompt": "You are the SQL worker. You must call sql_spec \u2014 never emit free Python.\nCall schema_lookup first if columns are unknown. Prefer date_at for one FRED/ApplFin point. Prefer workforce_slice agg=mean,column=Salary_INR for HR averages; count_only is headcount only.\nworkforce_slice / distinct_values / describe_column / row_lookup / top_n / ratio_agg / date_at / product_search are allowed.\nFor catalog how-many questions, use product_search and answer with COUNT=/match_count, never the preview row cap.\nTables: hr (MNC), applfin (AAPL), products (AAPL catalog), fred_cpi / fred_fedfunds / fred_umcsent (FRED), calendar (SYNTH_CAL).\nIf the user asks to join illegal entity pairs (MNC payroll vs MSFT 10-K), call join_check and abstain.\nReturn the spec result as a compact markdown table.",
+      "timeout_ms": 60000,
+      "tools": [
+        "sql_spec",
+        "distinct_values",
+        "describe_column",
+        "row_lookup",
+        "workforce_slice",
+        "ratio_agg",
+        "top_n",
+        "macro_latest",
+        "series_window",
+        "date_at",
+        "product_search",
+        "search_tools",
+        "session_get",
+        "skill_manage",
+        "schema_lookup",
+        "join_check",
+        "evidence_check"
+      ],
+      "version": 1
+    }
+  },
+  "egress_allowlist": [
+    "sec.gov",
+    "www.sec.gov",
+    "data.sec.gov",
+    "api.stlouisfed.org",
+    "fred.stlouisfed.org",
+    "www.apple.com",
+    "apple.com",
+    "www.microsoft.com",
+    "microsoft.com"
+  ],
+  "known_collections": [
+    "hr_data",
+    "finance_data",
+    "scheduler_data"
+  ],
+  "legal_joins": {
+    "AAPL": [
+      "AAPL",
+      "FRED",
+      "SYNTH_CAL"
+    ],
+    "FRED": [
+      "AAPL",
+      "FRED",
+      "MSFT"
+    ],
+    "KB": [
+      "KB"
+    ],
+    "MNC": [
+      "MNC"
+    ],
+    "MSFT": [
+      "FRED",
+      "MSFT"
+    ],
+    "SYNTH_CAL": [
+      "AAPL",
+      "SYNTH_CAL"
+    ]
+  },
+  "manifests": {
+    "anomaly_detect": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Z-score anomaly detection on a numeric column.",
+      "id": "anomaly_detect",
+      "max_bytes": 512000,
+      "resource_type": "series",
+      "schema": {
+        "properties": {
+          "column": {
+            "description": "numeric column",
+            "type": "string"
+          },
+          "table": {
+            "description": "table name",
+            "type": "string"
+          },
+          "threshold": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "table",
+          "column"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "anomaly_detect"
+    },
+    "calendar_conflicts": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Overlapping SYNTH_CAL events for an organizer and/or date prefix. Requires organizer or date_prefix.",
+      "id": "calendar_conflicts",
+      "max_bytes": 512000,
+      "resource_type": "calendar",
+      "schema": {
+        "properties": {
+          "date_prefix": {
+            "description": "YYYY-MM-DD prefix of start_time",
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "organizer": {
+            "description": "organizer substring",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "calendar_conflicts"
+    },
+    "calendar_query": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Query frozen calendar rows by organizer, date, title, attendee, or event_id. Returns match_count of the full filter; set count_only=true for the integer count.",
+      "id": "calendar_query",
+      "max_bytes": 512000,
+      "resource_type": "calendar",
+      "schema": {
+        "properties": {
+          "attendee": {
+            "description": "optional attendee substring",
+            "type": "string"
+          },
+          "count_only": {
+            "description": "return match_count without row payloads",
+            "type": "boolean"
+          },
+          "date_prefix": {
+            "description": "YYYY-MM-DD prefix of start_time",
+            "type": "string"
+          },
+          "event_id": {
+            "description": "optional exact event_id",
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "organizer": {
+            "description": "optional organizer substring",
+            "type": "string"
+          },
+          "title_contains": {
+            "description": "optional title substring",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "calendar_query"
+    },
+    "compare_series": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Compare two numeric columns (optionally aligned on DATE). Returns last values, n, correlation.",
+      "id": "compare_series",
+      "max_bytes": 512000,
+      "resource_type": "series",
+      "schema": {
+        "properties": {
+          "column_a": {
+            "description": "first numeric column",
+            "type": "string"
+          },
+          "column_b": {
+            "description": "second numeric column",
+            "type": "string"
+          },
+          "table_a": {
+            "description": "first table",
+            "type": "string"
+          },
+          "table_b": {
+            "description": "second table (defaults to table_a)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table_a",
+          "column_a",
+          "column_b"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "compare_series"
+    },
+    "date_at": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Exact FRED DATE (YYYY-MM-DD) or ApplFin year+quarter value. Prefer this over sql_spec for one-point lookups.",
+      "id": "date_at",
+      "max_bytes": 512000,
+      "resource_type": "series",
+      "schema": {
+        "properties": {
+          "column": {
+            "description": "CPIAUCSL | DFF | UMCSENT | NetSales_Total | ...",
+            "type": "string"
+          },
+          "date": {
+            "description": "YYYY-MM-DD for FRED",
+            "type": "string"
+          },
+          "period": {
+            "description": "optional '2020 Q3' / 'Q3 2020' if year+quarter are not split",
+            "type": "string"
+          },
+          "quarter": {
+            "description": "1-4 or Q1-Q4",
+            "type": "string"
+          },
+          "table": {
+            "description": "fred_cpi | fred_fedfunds | fred_umcsent | applfin",
+            "type": "string"
+          },
+          "year": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "table",
+          "column"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "date_at"
+    },
+    "describe_column": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Numeric summary: count, mean, std, min, p25, median, p75, max, nulls.",
+      "id": "describe_column",
+      "max_bytes": 512000,
+      "resource_type": "table",
+      "schema": {
+        "properties": {
+          "column": {
+            "description": "numeric column",
+            "type": "string"
+          },
+          "table": {
+            "description": "table name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "column"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "describe_column"
+    },
+    "distinct_values": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Unique values and counts for a column (departments, locations, organizers, \u2026).",
+      "id": "distinct_values",
+      "max_bytes": 512000,
+      "resource_type": "table",
+      "schema": {
+        "properties": {
+          "column": {
+            "description": "column name",
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "table": {
+            "description": "table name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "column"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "distinct_values"
+    },
+    "evidence_check": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Check whether claim strings (usually numbers) appear in this request's tool artifacts. Use before answering with a number you did not just compute.",
+      "id": "evidence_check",
+      "max_bytes": 512000,
+      "resource_type": "eval",
+      "schema": {
+        "properties": {
+          "claims": {
+            "description": "comma-separated claims or numbers",
+            "type": "string"
+          },
+          "text": {
+            "description": "optional extra evidence blob",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claims"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "evidence_check"
+    },
+    "forecast": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "ARIMA forecast on a numeric column of applfin or a FRED table.",
+      "id": "forecast",
+      "max_bytes": 512000,
+      "resource_type": "series",
+      "schema": {
+        "properties": {
+          "column": {
+            "description": "numeric column",
+            "type": "string"
+          },
+          "periods": {
+            "maximum": 12,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "table": {
+            "description": "applfin | fred_cpi | fred_fedfunds | fred_umcsent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "column"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "forecast"
+    },
+    "http_fetch": {
+      "allowed_hosts": [
+        "sec.gov",
+        "www.sec.gov",
+        "data.sec.gov",
+        "api.stlouisfed.org",
+        "fred.stlouisfed.org",
+        "www.apple.com",
+        "apple.com",
+        "www.microsoft.com",
+        "microsoft.com"
+      ],
+      "circuit_breaker": true,
+      "description": "GET an allow-listed URL (SEC, FRED, Apple, Microsoft). No secrets in the sandbox.",
+      "id": "http_fetch",
+      "max_bytes": 200000,
+      "resource_type": "web",
+      "schema": {
+        "properties": {
+          "max_bytes": {
+            "type": "integer"
+          },
+          "url": {
+            "description": "https url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "side_effect": "egress",
+      "timeout_ms": 15000,
+      "verb": "http_fetch"
+    },
+    "join_check": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Check whether entity tags may appear in one answer. Legal: AAPL+FRED, MSFT+FRED, SYNTH_CAL+AAPL. Illegal: MNC payroll with MSFT 10-K.",
+      "id": "join_check",
+      "max_bytes": 512000,
+      "resource_type": "policy",
+      "schema": {
+        "properties": {
+          "entities": {
+            "description": "comma-separated tags, e.g. MNC,MSFT",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entities"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "join_check"
+    },
+    "kb_list": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "List live KB uploads (chat attachments). Not the paper lake / data/frozen.",
+      "id": "kb_list",
+      "max_bytes": 512000,
+      "resource_type": "kb",
+      "schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "kb_list"
+    },
+    "kb_query": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "sql_spec over kb_* tables from live uploads only. Do not use sql_spec on kb_*.",
+      "id": "kb_query",
+      "max_bytes": 512000,
+      "resource_type": "kb",
+      "schema": {
+        "properties": {
+          "agg": {
+            "type": "object"
+          },
+          "column": {
+            "description": "optional; used by schema inject",
+            "type": "string"
+          },
+          "columns": {
+            "type": "array"
+          },
+          "filters": {
+            "type": "array"
+          },
+          "group_by": {
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "table": {
+            "description": "must start with kb_",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "kb_query"
+    },
+    "kb_search": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Search live KB chunks (user uploads). Never searches data/frozen or bench gold.",
+      "id": "kb_search",
+      "max_bytes": 512000,
+      "resource_type": "kb",
+      "schema": {
+        "properties": {
+          "k": {
+            "type": "integer"
+          },
+          "query": {
+            "description": "search text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "kb_search"
+    },
+    "macro_latest": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Latest FRED observation(s). Omit table for CPI + Fed Funds + UMCSENT together.",
+      "id": "macro_latest",
+      "max_bytes": 512000,
+      "resource_type": "series",
+      "schema": {
+        "properties": {
+          "table": {
+            "description": "fred_cpi | fred_fedfunds | fred_umcsent | omit for all",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "macro_latest"
+    },
+    "product_search": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Search the frozen AAPL product catalog (not MNC payroll). For how-many questions, use match_count / COUNT= in the preview \u2014 never the `rows` preview cap (max 40).",
+      "id": "product_search",
+      "max_bytes": 512000,
+      "resource_type": "catalog",
+      "schema": {
+        "properties": {
+          "category": {
+            "description": "category contains, e.g. iPhone",
+            "type": "string"
+          },
+          "in_stock": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "max_price": {
+            "type": "number"
+          },
+          "min_price": {
+            "type": "number"
+          },
+          "query": {
+            "description": "model_name or category substring",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "product_search"
+    },
+    "ratio_agg": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Ratio of matching rows to a base slice (e.g. Remote / all in IT). No free Python.",
+      "id": "ratio_agg",
+      "max_bytes": 512000,
+      "resource_type": "table",
+      "schema": {
+        "properties": {
+          "column": {
+            "description": "numerator column",
+            "type": "string"
+          },
+          "department": {
+            "description": "optional base Department filter",
+            "type": "string"
+          },
+          "location": {
+            "description": "optional Location filter",
+            "type": "string"
+          },
+          "status": {
+            "description": "optional Status filter on the base",
+            "type": "string"
+          },
+          "table": {
+            "description": "default hr",
+            "type": "string"
+          },
+          "value": {
+            "description": "numerator value (contains)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "column",
+          "value"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "ratio_agg"
+    },
+    "render_chart": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Render a chart from a sql_spec-like spec. graph_type: bar|line|pie|scatter.",
+      "id": "render_chart",
+      "max_bytes": 512000,
+      "resource_type": "chart",
+      "schema": {
+        "properties": {
+          "filters": {
+            "type": "array"
+          },
+          "graph_type": {
+            "description": "bar|line|pie|scatter",
+            "type": "string"
+          },
+          "table": {
+            "description": "table name",
+            "type": "string"
+          },
+          "title": {
+            "description": "title",
+            "type": "string"
+          },
+          "x": {
+            "description": "x column",
+            "type": "string"
+          },
+          "y": {
+            "description": "y column",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table"
+        ],
+        "type": "object"
+      },
+      "side_effect": "write",
+      "timeout_ms": 30000,
+      "verb": "render_chart"
+    },
+    "retrieve": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Retrieve evidence chunks. Optional entity filter (MNC|AAPL|MSFT|FRED|SYNTH_CAL).",
+      "id": "retrieve",
+      "max_bytes": 512000,
+      "resource_type": "chroma",
+      "schema": {
+        "properties": {
+          "collection": {
+            "description": "hr_data | finance_data | scheduler_data",
+            "type": "string"
+          },
+          "entity": {
+            "description": "optional entity tag",
+            "type": "string"
+          },
+          "k": {
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "search query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "retrieve"
+    },
+    "row_lookup": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Fetch rows by exact key (Employee_ID, event_id, DATE, \u2026). Prefer this over a full scan.",
+      "id": "row_lookup",
+      "max_bytes": 512000,
+      "resource_type": "table",
+      "schema": {
+        "properties": {
+          "key_column": {
+            "description": "column to match",
+            "type": "string"
+          },
+          "key_value": {
+            "description": "exact value",
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "table": {
+            "description": "table name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "key_column",
+          "key_value"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "row_lookup"
+    },
+    "schema_lookup": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "List frozen tables or one table's real columns, dtypes, entity tag, and sample values. Call this before sql_spec if a column name is uncertain (F4).",
+      "id": "schema_lookup",
+      "max_bytes": 512000,
+      "resource_type": "catalog",
+      "schema": {
+        "properties": {
+          "table": {
+            "description": "optional table; omit to list all",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "schema_lookup"
+    },
+    "search_agents": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "List active agent ids and intents.",
+      "id": "search_agents",
+      "max_bytes": 512000,
+      "resource_type": "catalog",
+      "schema": {
+        "properties": {
+          "query": {
+            "description": "optional filter",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "search_agents"
+    },
+    "search_tools": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "List available tool verbs and one-line descriptions.",
+      "id": "search_tools",
+      "max_bytes": 512000,
+      "resource_type": "catalog",
+      "schema": {
+        "properties": {
+          "query": {
+            "description": "optional filter",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "search_tools"
+    },
+    "series_window": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Stats for a numeric column between date_from and date_to (inclusive, YYYY-MM-DD prefixes).",
+      "id": "series_window",
+      "max_bytes": 512000,
+      "resource_type": "series",
+      "schema": {
+        "properties": {
+          "column": {
+            "description": "numeric column",
+            "type": "string"
+          },
+          "date_from": {
+            "description": "YYYY-MM-DD prefix",
+            "type": "string"
+          },
+          "date_to": {
+            "description": "YYYY-MM-DD prefix",
+            "type": "string"
+          },
+          "table": {
+            "description": "fred_* | applfin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "column"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "series_window"
+    },
+    "session_get": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Expand a compacted artifact_id from this request. Use when a tool stub is missing detail.",
+      "id": "session_get",
+      "max_bytes": 512000,
+      "resource_type": "session",
+      "schema": {
+        "properties": {
+          "artifact_id": {
+            "description": "id from a [compacted artifact:\u2026] stub",
+            "type": "string"
+          },
+          "max_chars": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "session_get"
+    },
+    "skill_manage": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Procedural memory: list/get saved SKILL.md files, or create/archive one after a working fix. op=list|get|create|archive. Limited roles cannot create or archive.",
+      "id": "skill_manage",
+      "max_bytes": 512000,
+      "resource_type": "skill",
+      "schema": {
+        "properties": {
+          "description": {
+            "description": "when to apply this skill",
+            "type": "string"
+          },
+          "name": {
+            "description": "skill slug",
+            "type": "string"
+          },
+          "op": {
+            "description": "list|get|create|archive",
+            "type": "string"
+          },
+          "procedure": {
+            "description": "the working steps / corrected spec",
+            "type": "string"
+          },
+          "query": {
+            "description": "optional filter for list",
+            "type": "string"
+          },
+          "verbs": {
+            "description": "comma-separated tool verbs",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "type": "object"
+      },
+      "side_effect": "write",
+      "timeout_ms": 30000,
+      "verb": "skill_manage"
+    },
+    "sql_spec": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Constrained aggregation. Never send Python. Tables: hr, applfin, fred_cpi, fred_fedfunds, fred_umcsent, calendar.",
+      "id": "sql_spec",
+      "max_bytes": 512000,
+      "resource_type": "table",
+      "schema": {
+        "properties": {
+          "agg": {
+            "type": "object"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "filters": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "group_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "sort": {
+            "type": "object"
+          },
+          "table": {
+            "description": "table name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "sql_spec"
+    },
+    "top_n": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "Top/bottom n rows by a numeric column after optional filters. Salary hidden for limited roles.",
+      "id": "top_n",
+      "max_bytes": 512000,
+      "resource_type": "table",
+      "schema": {
+        "properties": {
+          "ascending": {
+            "type": "boolean"
+          },
+          "category": {
+            "description": "optional products category",
+            "type": "string"
+          },
+          "column": {
+            "description": "numeric sort column",
+            "type": "string"
+          },
+          "department": {
+            "description": "optional HR Department filter",
+            "type": "string"
+          },
+          "n": {
+            "type": "integer"
+          },
+          "table": {
+            "description": "hr | applfin | products | fred_*",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "column"
+        ],
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "top_n"
+    },
+    "workforce_slice": {
+      "allowed_hosts": [],
+      "circuit_breaker": true,
+      "description": "HR slice over the MNC payroll table. Filter department / location / status / work_mode / job_title (Sales, Marketing, IT, Engineering, HR, \u2026 are Department values, not separate lakes). Optional group_by. count_only=true for a single integer.",
+      "id": "workforce_slice",
+      "max_bytes": 512000,
+      "resource_type": "hr",
+      "schema": {
+        "properties": {
+          "agg": {
+            "description": "count | mean | avg | sum | min | max. Use mean for average Salary_INR",
+            "type": "string"
+          },
+          "column": {
+            "description": "numeric column for agg, default Salary_INR",
+            "type": "string"
+          },
+          "count_only": {
+            "type": "boolean"
+          },
+          "department": {
+            "description": "Department contains, e.g. IT or Marketing",
+            "type": "string"
+          },
+          "group_by": {
+            "description": "optional column to break counts on",
+            "type": "string"
+          },
+          "job_title": {
+            "description": "Job_Title contains",
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "location": {
+            "description": "Location contains",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status contains, e.g. Active",
+            "type": "string"
+          },
+          "work_mode": {
+            "description": "Work_Mode contains, e.g. Remote",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "side_effect": "read",
+      "timeout_ms": 30000,
+      "verb": "workforce_slice"
+    }
+  },
+  "role_tools": {
+    "admin": [
+      "anomaly_detect",
+      "calendar_conflicts",
+      "calendar_query",
+      "compare_series",
+      "date_at",
+      "describe_column",
+      "distinct_values",
+      "evidence_check",
+      "forecast",
+      "http_fetch",
+      "join_check",
+      "kb_list",
+      "kb_query",
+      "kb_search",
+      "macro_latest",
+      "product_search",
+      "ratio_agg",
+      "render_chart",
+      "retrieve",
+      "row_lookup",
+      "schema_lookup",
+      "search_agents",
+      "search_tools",
+      "series_window",
+      "session_get",
+      "skill_manage",
+      "sql_spec",
+      "top_n",
+      "workforce_slice"
+    ],
+    "limited": [
+      "anomaly_detect",
+      "calendar_conflicts",
+      "calendar_query",
+      "compare_series",
+      "date_at",
+      "describe_column",
+      "distinct_values",
+      "evidence_check",
+      "join_check",
+      "kb_list",
+      "kb_query",
+      "kb_search",
+      "macro_latest",
+      "product_search",
+      "ratio_agg",
+      "render_chart",
+      "retrieve",
+      "row_lookup",
+      "schema_lookup",
+      "search_agents",
+      "search_tools",
+      "series_window",
+      "session_get",
+      "skill_manage",
+      "sql_spec",
+      "top_n",
+      "workforce_slice"
+    ],
+    "super_user": []
+  },
+  "salary_columns": [
+    "Salary",
+    "SalaryINR",
+    "Salary_INR",
+    "compensation",
+    "pay"
+  ]
+}

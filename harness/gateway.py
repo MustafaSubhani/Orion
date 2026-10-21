@@ -16,6 +16,7 @@ from uuid import uuid4
 
 import httpx
 
+from harness import metrics
 from harness.config import Settings, get_settings
 from harness.context import RequestContext
 from harness.errors import BudgetExceededError, HarnessError, TimeoutError_, ToolRuntimeError
@@ -143,6 +144,8 @@ class LLMGateway:
                     span.extra["artifacts_stubbed"] = packed.artifacts_stubbed
                     span.extra["middle_folded"] = packed.middle_folded
                     parsed.packed_messages = packed.messages
+                    metrics.inc("orion_llm_tokens_total", {"purpose": purpose, "direction": "in"}, parsed.tokens_in or packed.tokens_est)
+                    metrics.inc("orion_llm_tokens_total", {"purpose": purpose, "direction": "out"}, parsed.tokens_out)
                     ctx.charge_tokens((parsed.tokens_in or packed.tokens_est) + parsed.tokens_out)
                     return parsed
                 except BudgetExceededError:

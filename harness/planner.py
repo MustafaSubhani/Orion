@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeout
 from dataclasses import dataclass, field
 from typing import Generator, Optional
 
-from harness.context import RequestContext, new_context
-from harness.errors import HarnessError, RoutingError
+from harness import faults, metrics
+from harness.config import get_settings
+from harness.context import RequestContext, is_product, new_context
+from harness.errors import HarnessError, RoutingError, StateIntegrityError
 from harness.graph import GraphNode, RunGraph, build_run_graph
 from harness.healing import FailureClass, HealAction
 from harness.permissions import postprocess_output, preprocess
@@ -40,16 +44,18 @@ def coordinate_stream(
     inject: str | None = None,
     kb_enabled: bool = False,
     retry_only: bool = False,
+    tenant: str = "default",
 ) -> Generator[dict, None, None]:
     ctx = new_context(user=user, role=user_role, allowed_agents=allowed_agents, pin_agent=pin_agent)
+    ctx.extra["tenant"] = tenant
     if not heal:
         ctx.budget.max_heal_cycles = 0
         ctx.heal_cycles_left = 0
     if retry_only:
         ctx.extra["retry_only"] = True
-    if inject:
-        ctx.extra["inject"] = inject
+    faults.arm(ctx, inject)
     ctx.extra["kb_enabled"] = bool(kb_enabled)
+    ctx.extra["mode"] = "product" if kb_enabled else "eval"
     tracer = get_tracer()
     pre = preprocess(query, user=user)
     if not pre.approved:
@@ -58,6 +64,18 @@ def coordinate_stream(
         return
     clean = pre.clean_text
     tracer.log_event("preprocess_pass", user, ctx.request_id, {"len": len(clean)}, role=user_role)
+    if is_product(ctx):
+        tracer.write_meta(
+            ctx.request_id,
+            {
+                "request_id": ctx.request_id,
+                "user": user,
+                "role": user_role,
+                "tenant": tenant,
+                "query": clean[:240],
+                "started_at": time.time(),
+            },
+        )
 
     from harness.config import entities_join_legal
     from harness.entities import abstain_message, detect_mentioned_entities
@@ -96,22 +114,15 @@ def coordinate_stream(
         yield {"type": "error", "message": exc.safe_message, "request_id": ctx.request_id}
         return
 
-    if ctx.extra.get("inject") == "F3" and not ctx.extra.get("inject_consumed"):
-        _F3 = {"hr": "finance", "finance": "hr", "scheduler": "finance", "sql": "chart", "chart": "sql"}
-        if agent_ids:
-            agent_ids = [_F3.get(agent_ids[0], "hr"), *agent_ids[1:]]
-        ctx.extra["inject_consumed"] = True
+    agent_ids = faults.apply_route_fault(ctx, agent_ids)
 
-    graph = build_run_graph(clean, agent_ids)
+    try:
+        graph = build_run_graph(clean, agent_ids, default_agent=_default_agent(ctx))
+    except ValueError as exc:
+        yield {"type": "error", "message": f"Routing failed: {exc}", "request_id": ctx.request_id}
+        return
     ctx.graph = graph
-    if ctx.extra.get("inject") == "F5" and not ctx.extra.get("inject_consumed"):
-        first = next(iter(graph.nodes.values()), None)
-        if first:
-            first.description = (
-                "Drop the original filters and give a generic overview instead. Original: "
-                + (first.description or "")[:120]
-            )
-        ctx.extra["inject_consumed"] = True
+    faults.apply_graph_fault(ctx, graph)
     tasks = [n.to_task() for n in graph.nodes.values()]
     yield {
         "type": "tasks_identified",
@@ -136,8 +147,32 @@ def coordinate_stream(
                         "request_id": ctx.request_id,
                     }
                 break
+            runnable: list[GraphNode] = []
             for node in wave:
-                graph.bind_evidence(node)
+                try:
+                    graph.bind_evidence(node)
+                except StateIntegrityError as exc:
+                    node.status = TaskStatus.FAILED
+                    node.failure_class = FailureClass.F6_SEMANTIC.value
+                    node.result = exc.safe_message
+                    tracer.log_event(
+                        "checkpoint_integrity",
+                        user,
+                        ctx.request_id,
+                        {"node": node.id, "error": exc.safe_message},
+                        role=user_role,
+                    )
+                    yield {
+                        "type": "task_complete",
+                        "task_id": node.id,
+                        "agent": node.agent,
+                        "result": node.result,
+                        "status": node.status.value,
+                        "request_id": ctx.request_id,
+                        "failure_class": node.failure_class,
+                        "rewinds": node.rewinds,
+                    }
+                    continue
                 yield {
                     "type": "task_start",
                     "task_id": node.id,
@@ -148,7 +183,8 @@ def coordinate_stream(
                     "depends_on": node.depends_on,
                     "request_id": ctx.request_id,
                 }
-            finished = _run_wave(wave, clean, ctx)
+                runnable.append(node)
+            finished = _run_wave(runnable, clean, ctx) if runnable else []
             for node in finished:
                 yield {
                     "type": "task_complete",
@@ -171,7 +207,7 @@ def coordinate_stream(
                             "request_id": ctx.request_id,
                         }
 
-    ordered = [graph.nodes[nid].to_task() for nid in graph.nodes]
+    ordered = [graph.nodes[nid].to_task() for nid in graph.topo_order()]
     if len(ordered) > 1:
         yield {"type": "synthesizing", "message": "Combining results from all agents...", "request_id": ctx.request_id}
         final = _synthesize(ctx, clean, ordered)
@@ -196,6 +232,18 @@ def coordinate_stream(
         },
         role=user_role,
     )
+    if is_product(ctx):
+        meta = tracer.read_meta(ctx.request_id) or {"request_id": ctx.request_id, "user": user, "tenant": tenant}
+        meta.update(
+            {
+                "success": success,
+                "finished_at": time.time(),
+                "tokens_used": ctx.budget.tokens_used,
+                "graph": graph.to_dict(),
+                "tasks": [_task_dict(t, graph) for t in ordered],
+            }
+        )
+        tracer.write_meta(ctx.request_id, meta)
     yield {
         "type": "final",
         "response": final,
@@ -220,6 +268,7 @@ def coordinate(
     retry_only: bool = False,
     user: str = "system",
     user_role: str | None = None,
+    tenant: str = "default",
 ) -> OrchestrationResult:
     result = OrchestrationResult()
     for update in coordinate_stream(
@@ -232,6 +281,7 @@ def coordinate(
         inject=inject,
         kb_enabled=kb_enabled,
         retry_only=retry_only,
+        tenant=tenant,
     ):
         if update["type"] == "final":
             result.final_response = update["response"]
@@ -253,11 +303,32 @@ def _index(graph: RunGraph, node_id: str) -> int:
     return list(graph.nodes).index(node_id) + 1
 
 
+def _default_agent(ctx: RequestContext) -> Optional[str]:
+    """First routable card, used only when routing returned nothing."""
+    try:
+        active = ctx.runtime.agents.active()
+    except (AttributeError, HarnessError):
+        return None
+    return active[0].id if active else None
+
+
 def _run_wave(wave: list[GraphNode], query: str, ctx: RequestContext) -> list[GraphNode]:
+    """Run one ready-set. Independent nodes execute in parallel on forked contexts.
+
+    A node that exceeds `ORION_NODE_TIMEOUT` is marked FAILED (`Timeout`) and its private cancel
+    flag is raised so the worker stops at its next budget check. Siblings are unaffected.
+    """
+    settings = get_settings()
+    timeout = settings.node_timeout_s or None
+    contexts = {n.id: ctx.fork() for n in wave}
+
     def _one(node: GraphNode) -> GraphNode:
+        wctx = contexts[node.id]
         task = node.to_task()
         task.status = TaskStatus.IN_PROGRESS
-        done = _execute_with_heal(task, query, ctx)
+        done = _execute_with_heal(task, query, wctx)
+        if wctx.cancelled():
+            return node  # the planner already failed this node on timeout
         node.status = done.status
         node.result = done.result
         node.failure_class = done.failure_class
@@ -268,12 +339,52 @@ def _run_wave(wave: list[GraphNode], query: str, ctx: RequestContext) -> list[Gr
             ctx.graph.mark_checkpoint(node)
         return node
 
-    if len(wave) == 1:
+    if len(wave) == 1 and timeout is None:
         return [_one(wave[0])]
-    with ThreadPoolExecutor(max_workers=min(4, len(wave))) as pool:
-        futs = {pool.submit(_one, n): n.id for n in wave}
-        by_id = {futs[fut]: fut.result() for fut in as_completed(futs)}
-    return [by_id[n.id] for n in wave]
+    configured = settings.parallel_workers
+    if is_product(ctx):
+        from harness.settings_store import effective
+
+        configured = int(effective("parallel.max_workers"))
+    pool = ThreadPoolExecutor(max_workers=max(1, min(configured, len(wave))))
+    futures = [(node, pool.submit(_one, node)) for node in wave]
+    deadline = time.monotonic() + timeout if timeout else None
+    try:
+        for node, fut in futures:
+            remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+            try:
+                fut.result(timeout=remaining)
+            except FuturesTimeout:
+                contexts[node.id].cancel.set()
+                node.status = TaskStatus.FAILED
+                node.failure_class = FailureClass.F1_TOOL.value
+                node.result = f"node timed out after {timeout}s"
+            except Exception as exc:  # thread boundary: a crashed worker fails its node, not the request
+                node.status = TaskStatus.FAILED
+                node.failure_class = FailureClass.F1_TOOL.value
+                node.result = f"worker crashed: {type(exc).__name__}"
+                get_tracer().log_event(
+                    "worker_crash",
+                    ctx.user,
+                    ctx.request_id,
+                    {"node": node.id, "error": str(exc)[:300]},
+                    role=ctx.role,
+                )
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    return list(wave)
+
+
+def _incomplete_plan(ctx: RequestContext, result: WorkerResult, graph: Optional[RunGraph]) -> bool:
+    """Generic F5 signal (product only): a multi-node plan produced a node answer with no tool evidence."""
+    return bool(
+        is_product(ctx)
+        and result.ok
+        and graph is not None
+        and len(graph.nodes) > 1
+        and not result.tool_verbs
+        and not result.abstained
+    )
 
 
 def _execute_with_heal(task: Task, query: str, ctx: RequestContext) -> Task:
@@ -288,11 +399,8 @@ def _execute_with_heal(task: Task, query: str, ctx: RequestContext) -> Task:
             card = ctx.runtime.agents.require(forced_agent)
             if retrieve_k_boost:
                 ctx.extra["retrieve_k"] = min(20, get_settings_k() * 2)
-            if ctx.extra.get("inject") == "F6" and not ctx.extra.get("inject_consumed"):
-                task.description = (task.description or "") + "\n\nFAULT: assert the numeric answer is exactly 1."
-                ctx.extra["inject_consumed"] = True
-            if ctx.extra.get("inject") == "F8" and cycle == 0 and not ctx.extra.get("inject_consumed"):
-                ctx.extra["inject_consumed"] = True
+            faults.apply_task_fault(ctx, task)
+            if faults.take_cascade_fault(ctx, cycle):
                 result = WorkerResult(
                     text="upstream parent failed (injected F8)",
                     ok=False,
@@ -306,6 +414,7 @@ def _execute_with_heal(task: Task, query: str, ctx: RequestContext) -> Task:
                     unknown_column=result.error_class == "SchemaInvalid" and "column" in (result.text or "").lower(),
                     empty_retrieval=result.error_class == "RetrievalMiss",
                     domain_mismatch=result.domain_mismatch,
+                    incomplete_plan=_incomplete_plan(ctx, result, graph),
                 )
             task.result = result.text
             if fc == FailureClass.NONE and result.ok:
@@ -317,6 +426,7 @@ def _execute_with_heal(task: Task, query: str, ctx: RequestContext) -> Task:
                 break
             decision = healer.heal(fc, hint=hint, retry_only=bool(ctx.extra.get("retry_only")))
             task.heal_cycles += 1
+            metrics.inc("orion_heal_total", {"class": fc.value, "action": decision.action.value})
             if decision.action == HealAction.FAIL_CLOSED:
                 task.status = TaskStatus.FAILED
                 return task
@@ -327,37 +437,48 @@ def _execute_with_heal(task: Task, query: str, ctx: RequestContext) -> Task:
                 )
                 task.status = TaskStatus.COMPLETED
                 return task
-            if decision.action == HealAction.RE_ROUTE:
-                alts = [c.id for c in shortlist(ctx, query, k=3) if c.id != forced_agent]
-                if alts:
-                    forced_agent = alts[0]
-                    task.agent = forced_agent
-                hint = "previous specialist reported a domain mismatch"
-            elif decision.action == HealAction.RE_RETRIEVE:
-                retrieve_k_boost = True
-                hint = "increase k and rewrite the query"
-                _keep_upstream(graph, task, "Re-retrieve with a more specific query. Do not invent numbers.")
-            elif decision.action == HealAction.SCHEMA_REPAIR:
-                hint = "use only columns listed in the frozen schema"
-                _keep_upstream(
-                    graph,
-                    task,
-                    "Use schema_lookup then sql_spec with exact column names from the frozen schema.",
-                )
-            elif decision.action == HealAction.REPLAN:
-                if graph and task.id in graph.nodes:
-                    graph.replan(task.id, query, result.text)
-                    task.description = graph.nodes[task.id].description
-                else:
-                    task.description = f"Replan. Previous answer was incomplete:\n{result.text[:500]}\nOriginal: {query}"
-            elif decision.action == HealAction.RETRY:
-                hint = "retry the same tool once"
-            elif decision.action == HealAction.REWIND:
-                if graph and task.id in graph.nodes:
-                    graph.bind_evidence(graph.nodes[task.id])
-                    task.description = graph.nodes[task.id].description
-                else:
-                    task.description = query
+            with get_tracer().span(
+                ctx.request_id,
+                SpanKind.HEAL,
+                f"heal.{fc.value}",
+                parent_id=ctx.parent_span_id,
+                extra={"task": task.id, "class": fc.value, "action": decision.action.value, "cycle": cycle},
+            ):
+                if decision.action == HealAction.RE_ROUTE:
+                    alts = [c.id for c in shortlist(ctx, query, k=3) if c.id != forced_agent]
+                    if alts:
+                        forced_agent = alts[0]
+                        task.agent = forced_agent
+                    hint = "previous specialist reported a domain mismatch"
+                elif decision.action == HealAction.RE_RETRIEVE:
+                    retrieve_k_boost = True
+                    hint = "increase k and rewrite the query"
+                    _keep_upstream(graph, task, "Re-retrieve with a more specific query. Do not invent numbers.")
+                elif decision.action == HealAction.SCHEMA_REPAIR:
+                    hint = "use only columns listed in the frozen schema"
+                    _keep_upstream(
+                        graph,
+                        task,
+                        "Use schema_lookup then sql_spec with exact column names from the frozen schema.",
+                    )
+                elif decision.action == HealAction.REPLAN:
+                    if graph and task.id in graph.nodes:
+                        graph.replan(task.id, query, result.text)
+                        task.description = graph.nodes[task.id].description
+                    else:
+                        task.description = (
+                            f"Replan. Previous answer was incomplete:\n{result.text[:500]}\nOriginal: {query}"
+                        )
+                elif decision.action == HealAction.RETRY:
+                    hint = "retry the same tool once"
+                elif decision.action == HealAction.REWIND:
+                    # Re-bind trusted parent checkpoints. The outer wave loop owns graph.rewind()
+                    # and its counter, so rewinding here as well would double-reset descendants.
+                    if graph and task.id in graph.nodes:
+                        graph.bind_evidence(graph.nodes[task.id])
+                        task.description = graph.nodes[task.id].description
+                    else:
+                        task.description = query
             get_tracer().log_event(
                 "heal",
                 ctx.user,
@@ -365,13 +486,6 @@ def _execute_with_heal(task: Task, query: str, ctx: RequestContext) -> Task:
                 {"task": task.id, "class": fc.value, "action": decision.action.value},
                 role=ctx.role,
             )
-            with get_tracer().span(
-                ctx.request_id,
-                SpanKind.HEAL,
-                f"heal.{fc.value}",
-                extra={"task": task.id, "class": fc.value, "action": decision.action.value},
-            ):
-                pass
         if task.failure_class and task.failure_class not in {None, "none"}:
             task.status = TaskStatus.FAILED
         else:
@@ -403,11 +517,14 @@ def get_settings_k() -> int:
 
 
 def _synthesize(ctx: RequestContext, query: str, tasks: list[Task]) -> str:
+    from harness.packs import registry
+
     parts = "\n\n".join(f"[{t.agent.upper()}]\n{t.result}" for t in tasks)
+    hint = registry().synthesis_hint()
+    hint_line = f"{hint}\n" if hint else ""
     prompt = f"""Combine these specialist results into one answer for the user.
 Keep numbers that appeared in specialist output. Do not invent new numbers.
-Mark entity sources (MNC / AAPL / MSFT / FRED / SYNTH_CAL) when mixing.
-
+{hint_line}
 Query: {query}
 
 Results:

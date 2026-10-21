@@ -126,6 +126,15 @@ def _try_index(chunks: list[dict[str, Any]]) -> bool:
         return False
 
 
+def reindex_all() -> dict[str, Any]:
+    """Rebuild the vector index from stored chunks. Lexical search keeps working if indexing is unavailable."""
+    from kb.store import iter_chunks
+
+    chunks = iter_chunks()
+    indexed = _try_index(chunks) if chunks else False
+    return {"chunks": len(chunks), "indexed": indexed}
+
+
 def lexical_search(query: str, k: int = 8) -> list[dict[str, Any]]:
     terms = [t.lower() for t in re.findall(r"[a-zA-Z0-9_]+", query or "") if len(t) > 1]
     scored: list[tuple[int, dict[str, Any]]] = []

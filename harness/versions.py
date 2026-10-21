@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,6 +32,7 @@ class VersionStore:
         ensure_dirs()
         self.path = path or VERSIONS_PATH
         self._data: dict[str, list[AgentVersion]] = {}
+        self._lock = threading.RLock()
         self._load()
 
     def _load(self) -> None:
@@ -44,8 +46,11 @@ class VersionStore:
             self._data[agent_id] = [AgentVersion(**v) for v in versions]
 
     def _save(self) -> None:
-        payload = {aid: [v.to_dict() for v in vs] for aid, vs in self._data.items()}
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        from harness.fsutil import atomic_write, file_lock
+
+        with file_lock(self.path):
+            payload = {aid: [v.to_dict() for v in vs] for aid, vs in self._data.items()}
+            atomic_write(self.path, json.dumps(payload, indent=2))
 
     def save(
         self,
@@ -54,17 +59,18 @@ class VersionStore:
         created_by: str,
         change_note: str | None = None,
     ) -> AgentVersion:
-        bucket = self._data.setdefault(agent_id, [])
-        version = AgentVersion(
-            version=len(bucket) + 1,
-            agent_id=agent_id,
-            snapshot=snapshot,
-            created_at=datetime.now(timezone.utc).isoformat(),
-            created_by=created_by,
-            change_note=change_note,
-        )
-        bucket.append(version)
-        self._save()
+        with self._lock:
+            bucket = self._data.setdefault(agent_id, [])
+            version = AgentVersion(
+                version=len(bucket) + 1,
+                agent_id=agent_id,
+                snapshot=snapshot,
+                created_at=datetime.now(timezone.utc).isoformat(),
+                created_by=created_by,
+                change_note=change_note,
+            )
+            bucket.append(version)
+            self._save()
         return version
 
     def list(self, agent_id: str) -> list[AgentVersion]:

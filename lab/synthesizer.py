@@ -49,18 +49,20 @@ class Step(str, Enum):
     DONE = "done"
 
 
-QUESTIONS = {
-    Step.NAME: "**Step 1/4 — Name**\nWhat should this new agent be called?",
-    Step.JOB: "**Step 2/4 — Job**\nDescribe the job in one paragraph (what data, what answers).",
-    Step.ENTITIES: (
-        "**Step 3/4 — Entities**\nWhich lake entities? "
-        "`MNC`, `AAPL`, `MSFT`, `FRED`, `SYNTH_CAL` — comma-separated."
-    ),
-    Step.TOOLS: (
-        "**Step 4/4 — Tools**\nChoose from: `retrieve`, `sql_spec`, `forecast`, "
-        "`anomaly_detect`, `calendar_query`, `render_chart`, `http_fetch`. Comma-separated or `default`."
-    ),
-}
+def questions() -> dict:
+    """Wizard prompts. The entity list comes from the loaded domain packs, never from this file."""
+    from harness.packs import registry
+
+    entities = ", ".join(f"`{e}`" for e in sorted(registry().lab_entities()))
+    return {
+        Step.NAME: "**Step 1/4 — Name**\nWhat should this new agent be called?",
+        Step.JOB: "**Step 2/4 — Job**\nDescribe the job in one paragraph (what data, what answers).",
+        Step.ENTITIES: f"**Step 3/4 — Entities**\nWhich data entities? {entities} — comma-separated.",
+        Step.TOOLS: (
+            "**Step 4/4 — Tools**\nChoose from: `retrieve`, `sql_spec`, `forecast`, "
+            "`anomaly_detect`, `calendar_query`, `render_chart`, `http_fetch`. Comma-separated or `default`."
+        ),
+    }
 
 
 def _parse_list(raw: str, legal: set[str]) -> list[str]:
@@ -114,7 +116,7 @@ class LabAgent:
             s.mode = LabMode.CUSTOMIZE
             s.step = Step.NAME
             s.answers = {}
-            return QUESTIONS[Step.NAME]
+            return questions()[Step.NAME]
         if lower == "list":
             return self._list()
         if lower.startswith("use "):
@@ -143,15 +145,15 @@ class LabAgent:
         if s.step == Step.NAME:
             s.answers["name"] = text
             s.step = Step.JOB
-            return QUESTIONS[Step.JOB]
+            return questions()[Step.JOB]
         if s.step == Step.JOB:
             s.answers["job"] = text
             s.step = Step.ENTITIES
-            return QUESTIONS[Step.ENTITIES]
+            return questions()[Step.ENTITIES]
         if s.step == Step.ENTITIES:
             s.answers["entities"] = text
             s.step = Step.TOOLS
-            return QUESTIONS[Step.TOOLS]
+            return questions()[Step.TOOLS]
         if s.step == Step.TOOLS:
             s.answers["tools"] = text
             card = synthesize(s.answers, created_by=user)
@@ -167,7 +169,7 @@ class LabAgent:
                 f"Run `test {card.id}` then `deploy {card.id}` to promote it. "
                 f"It will not be routed in live chat until ACTIVE/DEPLOYED."
             )
-        return QUESTIONS.get(s.step or Step.NAME, self._help())
+        return questions().get(s.step or Step.NAME, self._help())
 
     def _list(self) -> str:
         agents = get_custom_agents()
@@ -251,8 +253,11 @@ def synthesize(answers: dict[str, str], created_by: str = "lab") -> AgentCard:
     name = answers.get("name") or "untitled"
     slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "agent"
     agent_id = f"lab_{slug}_{int(time.time()) % 100000}"
-    entities = _parse_list(answers.get("entities") or "AAPL", legal={"MNC", "AAPL", "MSFT", "FRED", "SYNTH_CAL"})
-    from harness.tool_extras import LAB_LEGAL_TOOLS
+    from harness.packs import registry as pack_registry
+
+    packs = pack_registry()
+    entities = _parse_list(answers.get("entities") or packs.default_entity(), legal=packs.lab_entities())
+    LAB_LEGAL_TOOLS = packs.lab_tools()
 
     tools_raw = (answers.get("tools") or "default").strip().lower()
     if tools_raw == "all":

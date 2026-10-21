@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+import dataclasses
+import difflib
 import hashlib
 import json
+import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 from urllib.parse import urlparse
+from uuid import uuid4
 
-from harness.config import EGRESS_ALLOWLIST, GRAPHS_DIR, KNOWN_COLLECTIONS, get_settings
-from harness.context import RequestContext
+from harness import faults, metrics
+from harness.config import GRAPHS_DIR, get_settings
+from harness.packs import registry as pack_registry
+from harness.context import RequestContext, is_product
 from harness.errors import (
     CircuitOpenError,
     ErrorClass,
@@ -32,24 +38,27 @@ Handler = Callable[[dict[str, Any], RequestContext], Any]
 class CircuitState:
     failures: int = 0
     opened_at: float = 0.0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def allow(self, threshold: int, cooldown_s: float) -> bool:
-        if self.opened_at == 0.0:
-            return True
-        if time.time() - self.opened_at >= cooldown_s:
-            self.failures = 0
-            self.opened_at = 0.0
-            return True
-        return False
+        with self._lock:
+            if self.opened_at == 0.0:
+                return True
+            if time.time() - self.opened_at >= cooldown_s:
+                self.failures = 0
+                self.opened_at = 0.0
+                return True
+            return False
 
     def record(self, ok: bool, threshold: int) -> None:
-        if ok:
-            self.failures = 0
-            self.opened_at = 0.0
-            return
-        self.failures += 1
-        if self.failures >= threshold:
-            self.opened_at = time.time()
+        with self._lock:
+            if ok:
+                self.failures = 0
+                self.opened_at = 0.0
+                return
+            self.failures += 1
+            if self.failures >= threshold:
+                self.opened_at = time.time()
 
 
 class ToolRegistry:
@@ -57,6 +66,7 @@ class ToolRegistry:
         self._manifests: dict[str, ToolManifest] = {}
         self._handlers: dict[str, Handler] = {}
         self._circuits: dict[str, CircuitState] = {}
+        self._circuit_lock = threading.Lock()
         self._register_builtins()
 
     def register(self, manifest: ToolManifest, handler: Handler) -> None:
@@ -89,14 +99,30 @@ class ToolRegistry:
         return tools
 
     def call(self, verb: str, arguments: dict[str, Any], ctx: RequestContext) -> ToolResult:
+        """Run a tool through policy, circuit, tracing and metrics. Always returns a ToolResult
+        except for unknown tools and budget errors, which raise typed HarnessErrors."""
+        started = time.perf_counter()
+        result = self._call(verb, arguments, ctx)
+        metrics.inc("orion_tool_calls_total", {"verb": result.verb, "ok": str(result.ok).lower()})
+        metrics.observe("orion_tool_seconds", time.perf_counter() - started, {"verb": result.verb})
+        return result
+
+    def _call(self, verb: str, arguments: dict[str, Any], ctx: RequestContext) -> ToolResult:
         ctx.check_time()
         manifest = self._manifests.get(verb)
+        rebound_from: Optional[str] = None
+        if manifest is None and is_product(ctx):
+            matched = rebind_verb(verb, list(ctx.extra.get("allowed_verbs") or self._manifests))
+            if matched and matched in self._manifests:
+                rebound_from, verb = verb, matched
+                manifest = self._manifests[verb]
         if manifest is None:
             raise UnknownToolError(f"Unknown tool '{verb}'. Use search_tools.")
         assert_tool_allowed(ctx.role, verb)
         settings = get_settings()
         circuit_key = f"{ctx.request_id}:{verb}"
-        circuit = self._circuits.setdefault(circuit_key, CircuitState())
+        with self._circuit_lock:
+            circuit = self._circuits.setdefault(circuit_key, CircuitState())
         if manifest.circuit_breaker and not circuit.allow(
             settings.circuit_fail_threshold, settings.circuit_cooldown_s
         ):
@@ -117,9 +143,7 @@ class ToolRegistry:
             args={"verb": verb, "keys": sorted(arguments.keys())},
         ) as span:
             try:
-                if str((ctx.extra or {}).get("inject") or "") == "F7" and not (ctx.extra or {}).get("inject_consumed"):
-                    ctx.extra["inject_consumed"] = True
-                    raise PolicyDeniedError("injected policy deny (F7)")
+                faults.tool_call_fault(ctx)
                 handler = self._handlers[verb]
                 data = handler(arguments or {}, ctx)
                 preview, truncated = _compact(data)
@@ -137,6 +161,8 @@ class ToolRegistry:
                 extra = dict(span.extra or {})
                 extra["preview"] = (preview or "")[:500]
                 extra["verb"] = verb
+                if rebound_from:
+                    extra["rebound_from"] = rebound_from
                 span.extra = extra
                 circuit.record(True, settings.circuit_fail_threshold)
                 return result
@@ -178,7 +204,7 @@ class ToolRegistry:
                 id="retrieve",
                 verb="retrieve",
                 resource_type="chroma",
-                description="Retrieve evidence chunks. Optional entity filter (MNC|AAPL|MSFT|FRED|SYNTH_CAL).",
+                description="Retrieve evidence chunks. Optional entity filter.",
                 schema=_object(
                     {
                         "query": _str("search query"),
@@ -217,7 +243,7 @@ class ToolRegistry:
                 id="forecast",
                 verb="forecast",
                 resource_type="series",
-                description="ARIMA forecast on a numeric column of applfin or a FRED table.",
+                description="ARIMA forecast on a numeric column of a time-series table.",
                 schema=_object(
                     {
                         "table": _str("applfin | fred_cpi | fred_fedfunds | fred_umcsent"),
@@ -292,10 +318,10 @@ class ToolRegistry:
                 id="http_fetch",
                 verb="http_fetch",
                 resource_type="web",
-                description="GET an allow-listed URL (SEC, FRED, Apple, Microsoft). No secrets in the sandbox.",
+                description="GET an allow-listed URL. No secrets in the sandbox.",
                 schema=_object({"url": _str("https url"), "max_bytes": {"type": "integer"}}, required=["url"]),
                 side_effect=SideEffect.EGRESS,
-                allowed_hosts=EGRESS_ALLOWLIST,
+                allowed_hosts=pack_registry().egress_allowlist(),
                 timeout_ms=15_000,
                 max_bytes=200_000,
             ),
@@ -361,11 +387,24 @@ class ToolRegistry:
             ),
             _handle_search_agents,
         )
-        from harness.tool_extras import register_extras
         from kb.tools import register_kb_tools
 
-        register_extras(self)
+        packs = pack_registry()
+        packs.register_tools(self)
         register_kb_tools(self)
+        for verb, text in packs.tool_descriptions().items():
+            manifest = self._manifests.get(verb)
+            if manifest is not None:
+                self._manifests[verb] = dataclasses.replace(manifest, description=text)
+
+
+def rebind_verb(verb: str, allowed: list[str], cutoff: float = 0.8) -> Optional[str]:
+    """F1 re-binding: map a misspelled verb onto the closest verb the agent may actually call.
+
+    Never matches outside `allowed`, so it cannot widen an agent's permissions.
+    """
+    matches = difflib.get_close_matches(str(verb or ""), list(allowed), n=1, cutoff=cutoff)
+    return matches[0] if matches else None
 
 
 def _object(properties: dict, required: list[str] | None = None) -> dict:
@@ -392,24 +431,8 @@ def _compact(data: Any, limit: int = 2500) -> tuple[str, bool]:
 
 
 def _apply_eval_inject(args: dict[str, Any], ctx: RequestContext, verb: str) -> dict[str, Any]:
-    """One-shot fault for FDA/RSR. Live chat never sets ctx.extra['inject']."""
-    code = str((ctx.extra or {}).get("inject") or "")
-    if not code or (ctx.extra or {}).get("inject_consumed"):
-        return args
-    patched = dict(args)
-    if verb == "sql_spec" and code == "F4":
-        patched["column"] = "PerformanceScore"
-    elif verb == "sql_spec" and code == "F1":
-        patched["table"] = "nope"
-    elif verb == "retrieve" and code == "F2":
-        patched["collection"] = "does_not_exist"
-    elif code == "F7":
-        ctx.extra["inject_consumed"] = True
-        raise PolicyDeniedError("injected policy deny (F7)")
-    else:
-        return args
-    ctx.extra["inject_consumed"] = True
-    return patched
+    """Compatibility wrapper. The fault logic lives in `harness.faults`."""
+    return faults.apply_tool_fault(args, ctx, verb)
 
 
 def _handle_retrieve(args: dict[str, Any], ctx: RequestContext) -> dict:
@@ -420,8 +443,9 @@ def _handle_retrieve(args: dict[str, Any], ctx: RequestContext) -> dict:
     if not query:
         raise SchemaInvalidError("retrieve.query is required")
     collection = str(args.get("collection") or _guess_collection(ctx))
-    if collection not in KNOWN_COLLECTIONS:
-        raise RetrievalMissError(f"unknown collection '{collection}'. known: {list(KNOWN_COLLECTIONS)}")
+    known = pack_registry().known_collections()
+    if collection not in known:
+        raise RetrievalMissError(f"unknown collection '{collection}'. known: {list(known)}")
     k = int(args.get("k") or ctx.extra.get("retrieve_k") or get_settings().retrieve_k)
     k = max(1, min(k, 20))
     where = None
@@ -451,6 +475,7 @@ def _handle_retrieve(args: dict[str, Any], ctx: RequestContext) -> dict:
         )
     if not chunks:
         raise RetrievalMissError(f"no chunks in '{collection}' for this query")
+    _enforce_min_similarity(chunks, ctx, collection)
     from harness.entities import assert_entity_allowed
 
     for chunk in chunks:
@@ -469,13 +494,36 @@ def _handle_retrieve(args: dict[str, Any], ctx: RequestContext) -> dict:
     }
 
 
+def best_similarity(chunks: list[dict[str, Any]]) -> Optional[float]:
+    """Highest cosine similarity among chunks (collections use cosine distance), or None if unknown."""
+    sims = [1.0 - float(c["distance"]) for c in chunks if c.get("distance") is not None]
+    return max(sims) if sims else None
+
+
+def _enforce_min_similarity(chunks: list[dict[str, Any]], ctx: RequestContext, collection: str) -> None:
+    """F2: in live chat, a retrieval whose best chunk is too dissimilar counts as a miss.
+
+    Disabled in eval mode and when `retrieval.min_similarity` is 0, so benchmark runs are unchanged.
+    """
+    if not is_product(ctx):
+        return
+    from harness.settings_store import effective
+
+    floor = float(effective("retrieval.min_similarity"))
+    if floor <= 0:
+        return
+    best = best_similarity(chunks)
+    if best is not None and best < floor:
+        raise RetrievalMissError(
+            f"low_similarity: best match {best:.2f} is below {floor:.2f} in '{collection}'"
+        )
+
+
 def _guess_collection(ctx: RequestContext) -> str:
+    from harness.packs import registry
+
     pin = ctx.pin_agent or str((ctx.extra or {}).get("worker_agent") or "")
-    if pin == "hr":
-        return "hr_data"
-    if pin == "scheduler":
-        return "scheduler_data"
-    return "finance_data"
+    return registry().default_collection(pin)
 
 
 def _handle_sql_spec(args: dict[str, Any], ctx: RequestContext) -> dict:
@@ -641,7 +689,7 @@ def _handle_chart(args: dict[str, Any], ctx: RequestContext) -> dict:
         fig = px.bar(plot_df, x=x_col, y=y_col, title=title)
     fig.update_layout(template="plotly_dark")
     GRAPHS_DIR.mkdir(parents=True, exist_ok=True)
-    filename = f"graph_{graph_type}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.png"
+    filename = f"graph_{graph_type}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:12]}.png"
     filepath = GRAPHS_DIR / filename
     try:
         fig.write_image(str(filepath), width=800, height=500, scale=2)
@@ -661,6 +709,16 @@ def _handle_chart(args: dict[str, Any], ctx: RequestContext) -> dict:
     }
 
 
+def _egress_hosts(ctx: RequestContext) -> tuple[str, ...]:
+    """Pack allow-list, plus admin additions in live chat. Eval mode uses the pack list only."""
+    hosts = list(pack_registry().egress_allowlist())
+    if is_product(ctx):
+        from harness.settings_store import effective
+
+        hosts.extend(str(h) for h in effective("egress.allowlist"))
+    return tuple(dict.fromkeys(hosts))
+
+
 def _handle_http(args: dict[str, Any], ctx: RequestContext) -> dict:
     import httpx
 
@@ -669,7 +727,8 @@ def _handle_http(args: dict[str, Any], ctx: RequestContext) -> dict:
     host = (parsed.hostname or "").lower()
     if parsed.scheme not in {"http", "https"} or not host:
         raise PolicyDeniedError("http_fetch: invalid URL")
-    if not any(host == h or host.endswith("." + h) for h in EGRESS_ALLOWLIST):
+    allowed_hosts = _egress_hosts(ctx)
+    if not any(host == h or host.endswith("." + h) for h in allowed_hosts):
         raise PolicyDeniedError(f"host '{host}' is not on the egress allow-list")
     max_bytes = min(int(args.get("max_bytes") or 200_000), 200_000)
     try:
@@ -679,7 +738,7 @@ def _handle_http(args: dict[str, Any], ctx: RequestContext) -> dict:
     except httpx.HTTPError as exc:
         raise ToolRuntimeError(f"http_fetch failed: {exc}") from exc
     final_host = urlparse(str(response.url)).hostname or ""
-    if not any(final_host == h or final_host.endswith("." + h) for h in EGRESS_ALLOWLIST):
+    if not any(final_host == h or final_host.endswith("." + h) for h in allowed_hosts):
         raise PolicyDeniedError("redirect left the allow-list")
     text = response.text[:max_bytes]
     return {"url": str(response.url), "status": response.status_code, "text": text, "preview": text[:1500]}

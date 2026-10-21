@@ -40,13 +40,48 @@ class Tracer:
         self.traces_dir.mkdir(parents=True, exist_ok=True)
         self.audit_path = self.traces_dir.parent / "audit_log.jsonl"
         self._spans: dict[str, list[Span]] = {}
+        self._span_lock = threading.Lock()
 
     def _request_path(self, request_id: str) -> Path:
         safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in request_id)
         return self.traces_dir / f"{safe}.jsonl"
 
+    def write_meta(self, request_id: str, meta: dict[str, Any]) -> None:
+        """Ownership and summary for one request (product mode). Lets the API list and authorise traces."""
+        from harness.fsutil import atomic_write
+
+        safe = self._request_path(request_id).stem
+        atomic_write(self.traces_dir / f"{safe}.meta.json", json.dumps(meta, ensure_ascii=False, default=str))
+
+    def read_meta(self, request_id: str) -> Optional[dict[str, Any]]:
+        safe = self._request_path(request_id).stem
+        path = self.traces_dir / f"{safe}.meta.json"
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    def list_requests(self, *, user: Optional[str] = None, tenant: Optional[str] = None, limit: int = 50) -> list[dict[str, Any]]:
+        """Newest-first request summaries, optionally filtered to one user or tenant."""
+        paths = sorted(self.traces_dir.glob("*.meta.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        out: list[dict[str, Any]] = []
+        for path in paths:
+            try:
+                meta = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if user is not None and meta.get("user") != user:
+                continue
+            if tenant is not None and meta.get("tenant", "default") != tenant:
+                continue
+            out.append(meta)
+            if len(out) >= max(1, limit):
+                break
+        return out
+
     def append(self, span: Span) -> None:
-        self._spans.setdefault(span.request_id, []).append(span)
+        with self._span_lock:
+            self._spans.setdefault(span.request_id, []).append(span)
         line = json.dumps(span.to_dict(), ensure_ascii=False, default=str)
         path = self._request_path(span.request_id)
         try:
@@ -59,9 +94,10 @@ class Tracer:
             print(f"[TRACE] write failed: {exc}")
 
     def spans_for(self, request_id: str) -> list[Span]:
-        cached = self._spans.get(request_id)
-        if cached:
-            return list(cached)
+        with self._span_lock:
+            cached = self._spans.get(request_id)
+            if cached:
+                return list(cached)
         path = self._request_path(request_id)
         if not path.exists():
             return []

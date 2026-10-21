@@ -7,10 +7,12 @@ good parent checkpoint. Independent nodes still run in parallel.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+from harness.errors import StateIntegrityError
 from harness.types import Task, TaskStatus
 
 _PIPELINE = re.compile(
@@ -26,12 +28,21 @@ _PIPELINE = re.compile(
 )
 
 
+def _digest(text: str) -> str:
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
 @dataclass
 class Checkpoint:
     node_id: str
     agent: str
     result: str
     status: str
+    result_hash: str = ""
+
+    def verify(self) -> bool:
+        """A checkpoint with no recorded hash (legacy) is trusted; otherwise the text must match."""
+        return not self.result_hash or self.result_hash == _digest(self.result)
 
 
 @dataclass
@@ -137,6 +148,10 @@ class RunGraph:
         parts = []
         for dep in self.nodes[node_id].depends_on:
             parent = self.nodes[dep]
+            if parent.checkpoint and not parent.checkpoint.verify():
+                raise StateIntegrityError(
+                    f"checkpoint for '{parent.id}' no longer matches its recorded hash"
+                )
             snap = parent.checkpoint.result if parent.checkpoint else parent.result
             if snap:
                 parts.append(f"[{parent.agent} / {parent.id}]\n{snap[:2000]}")
@@ -159,7 +174,25 @@ class RunGraph:
             agent=node.agent,
             result=node.result,
             status=node.status.value,
+            result_hash=_digest(node.result),
         )
+
+    def topo_order(self) -> list[str]:
+        """Node ids with every parent before its children (stable for independent nodes)."""
+        order: list[str] = []
+        seen: set[str] = set()
+
+        def visit(nid: str) -> None:
+            if nid in seen:
+                return
+            seen.add(nid)
+            for dep in self.nodes[nid].depends_on:
+                visit(dep)
+            order.append(nid)
+
+        for nid in self.nodes:
+            visit(nid)
+        return order
 
     def rewind(self, node_id: str, *, max_rewinds: int = 2) -> list[str]:
         """Reset the node and its descendants. Parents stay checkpointed."""
@@ -246,10 +279,16 @@ def needs_pipeline(query: str) -> bool:
     return bool(_PIPELINE.search(query or ""))
 
 
-def build_run_graph(query: str, agent_ids: list[str]) -> RunGraph:
-    """One node per routed agent. Pipeline queries get a chain; otherwise a parallel set."""
+def build_run_graph(query: str, agent_ids: list[str], default_agent: Optional[str] = None) -> RunGraph:
+    """One node per routed agent. Pipeline queries get a chain; otherwise a parallel set.
+
+    `default_agent` is only used when routing produced nothing. With no default the caller
+    gets a ValueError instead of a silent guess.
+    """
     graph = RunGraph()
-    ids = list(agent_ids) or ["hr"]
+    ids = list(agent_ids) or ([default_agent] if default_agent else [])
+    if not ids:
+        raise ValueError("no agents routed and no default agent available")
     sequential = needs_pipeline(query) and len(ids) > 1
     prev: Optional[str] = None
     for i, agent in enumerate(ids):

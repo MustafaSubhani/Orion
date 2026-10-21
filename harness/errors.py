@@ -18,6 +18,8 @@ class ErrorClass(str, Enum):
     UNKNOWN_TOOL = "UnknownTool"
     UNKNOWN_AGENT = "UnknownAgent"
     SANDBOX = "SandboxError"
+    STATE_INTEGRITY = "StateIntegrityError"
+    APPROVAL_REQUIRED = "ApprovalRequired"
 
 
 class HarnessError(Exception):
@@ -84,3 +86,15 @@ class UnknownAgentError(HarnessError):
 
 class SandboxError(HarnessError):
     error_class = ErrorClass.SANDBOX
+
+
+class StateIntegrityError(HarnessError):
+    """A checkpoint or intermediate state no longer matches its recorded hash (classified F6)."""
+
+    error_class = ErrorClass.STATE_INTEGRITY
+
+
+class ApprovalRequiredError(HarnessError):
+    """A write or egress tool needs an explicit human approval before it may run."""
+
+    error_class = ErrorClass.APPROVAL_REQUIRED

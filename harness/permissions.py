@@ -46,75 +46,21 @@ _PII = [
     (re.compile(r"(?<![/\w])[A-Za-z0-9]{40,}(?![/\w])"), "[SECRET REDACTED]"),
 ]
 
-SALARY_COLUMNS = frozenset({"Salary_INR", "Salary", "SalaryINR", "compensation", "pay"})
+# Role tool allow-lists and sensitive columns come from the loaded domain packs. The names stay
+# importable from here (`ROLE_TOOL_ALLOWLIST`, `SALARY_COLUMNS`) and resolve lazily.
+#
+# Platform tools are not pack specific. They are allowed for limited users, and the tool registry
+# still blocks any of them that is not read-only for a limited role.
+PLATFORM_TOOLS = frozenset({"web_search"})
 
-ROLE_TOOL_ALLOWLIST: dict[str, frozenset[str]] = {
-    "limited": frozenset(
-        {
-            "retrieve",
-            "sql_spec",
-            "calendar_query",
-            "calendar_conflicts",
-            "render_chart",
-            "anomaly_detect",
-            "search_tools",
-            "search_agents",
-            "session_get",
-            "skill_manage",
-            "schema_lookup",
-            "distinct_values",
-            "describe_column",
-            "row_lookup",
-            "join_check",
-            "evidence_check",
-            "compare_series",
-            "workforce_slice",
-            "ratio_agg",
-            "top_n",
-            "macro_latest",
-            "series_window",
-            "date_at",
-            "product_search",
-            "kb_list",
-            "kb_search",
-            "kb_query",
-        }
-    ),
-    "admin": frozenset(
-        {
-            "retrieve",
-            "sql_spec",
-            "forecast",
-            "anomaly_detect",
-            "calendar_query",
-            "calendar_conflicts",
-            "render_chart",
-            "http_fetch",
-            "search_tools",
-            "search_agents",
-            "session_get",
-            "skill_manage",
-            "schema_lookup",
-            "distinct_values",
-            "describe_column",
-            "row_lookup",
-            "join_check",
-            "evidence_check",
-            "compare_series",
-            "workforce_slice",
-            "ratio_agg",
-            "top_n",
-            "macro_latest",
-            "series_window",
-            "date_at",
-            "product_search",
-            "kb_list",
-            "kb_search",
-            "kb_query",
-        }
-    ),
-    "super_user": frozenset(),  # empty means all
-}
+
+def __getattr__(name: str):
+    if name in {"ROLE_TOOL_ALLOWLIST", "SALARY_COLUMNS"}:
+        from harness.packs import registry
+
+        reg = registry()
+        return reg.role_tools() if name == "ROLE_TOOL_ALLOWLIST" else reg.sensitive_columns()
+    raise AttributeError(f"module 'harness.permissions' has no attribute {name!r}")
 
 
 @dataclass
@@ -170,12 +116,21 @@ def postprocess_output(text: str) -> tuple[str, list[str]]:
 def assert_tool_allowed(role: Optional[str], verb: str) -> None:
     if role is None or role in {"super_user", "admin"}:
         return
-    allowed = ROLE_TOOL_ALLOWLIST.get(role, ROLE_TOOL_ALLOWLIST["limited"])
+    if verb in PLATFORM_TOOLS or verb.startswith("mcp."):
+        return  # gated by side effect in the registry, not by a pack list
+    from harness.packs import registry
+
+    role_tools = registry().role_tools()
+    allowed = role_tools.get(role, role_tools.get("limited", frozenset()))
     if verb not in allowed:
         raise PolicyDeniedError(f"Role '{role}' cannot use tool '{verb}'")
 
 
 def strip_salary_if_limited(columns: list[str], role: Optional[str]) -> list[str]:
+    """Drop pack-declared sensitive columns for limited roles (name kept for compatibility)."""
     if role == "limited":
-        return [c for c in columns if c not in SALARY_COLUMNS]
+        from harness.packs import registry
+
+        sensitive = registry().sensitive_columns()
+        return [c for c in columns if c not in sensitive]
     return columns

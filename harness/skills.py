@@ -19,18 +19,9 @@ from harness.config import SKILLS_DIR, ensure_dirs
 ARCHIVE_DIR = SKILLS_DIR / "_archive"
 _SLUG = re.compile(r"[^a-z0-9]+")
 _BANNED = ("bench/", "MISTRAL_API_KEY", "eval(", "subprocess", "__import__", "../")
-# Run-specific recipes that do not transfer (cloned-table caps, one fiscal story).
-_STALE = (
-    "4000 match",
-    "4000 matches",
-    "match_count=4000",
-    "limit=4000",
-    "interpret this as zero",
-    "fiscal year ends",
-    "fiscal quarter mapping",
-    "q4 = calendar q4",
-    "deduplicate by event_id",
-)
+# Run-specific recipes that do not transfer are declared by the loaded domain packs
+# (`stale_skill_patterns`). Core only bans generic hazards (see `_BANNED`).
+_STALE: tuple[str, ...] = ()
 
 
 @dataclass
@@ -133,8 +124,10 @@ def skill_from_markdown(text: str) -> Skill:
 
 
 def skill_is_stale(text: str) -> Optional[str]:
+    from harness.packs import registry
+
     blob = (text or "").lower()
-    for needle in _STALE:
+    for needle in (*_STALE, *registry().stale_skill_patterns()):
         if needle in blob:
             return needle
     return None

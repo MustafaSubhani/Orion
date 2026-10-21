@@ -1,4 +1,8 @@
-"""Typed recovery. Blind retry is only legal for F1. F6 and F7 must not retry."""
+"""Typed recovery. Blind retry is only legal for F1. F6 and F7 must not retry.
+
+Precedence (highest first): F7 > F8 > F4 > F1 > F2 > F5 > F3 > F6.
+When several signals fire at once the resolver picks exactly one class, deterministically.
+"""
 
 from __future__ import annotations
 
@@ -33,6 +37,17 @@ class HealAction(str, Enum):
     NONE = "NONE"
 
 
+PRECEDENCE: tuple[FailureClass, ...] = (
+    FailureClass.F7_POLICY,
+    FailureClass.F8_CASCADE,
+    FailureClass.F4_SCHEMA,
+    FailureClass.F1_TOOL,
+    FailureClass.F2_RETRIEVAL,
+    FailureClass.F5_DECOMPOSITION,
+    FailureClass.F3_ROUTING,
+    FailureClass.F6_SEMANTIC,
+)
+
 _HINTS = {
     FailureClass.F1_TOOL: HealAction.RETRY,
     FailureClass.F2_RETRIEVAL: HealAction.RE_RETRIEVE,
@@ -42,6 +57,18 @@ _HINTS = {
     FailureClass.F6_SEMANTIC: HealAction.ESCALATE_ABSTAIN,
     FailureClass.F7_POLICY: HealAction.FAIL_CLOSED,
     FailureClass.F8_CASCADE: HealAction.REWIND,
+}
+
+_TOOL_ERRORS = {"Timeout", "TimeoutError_", "ToolRuntime", "ToolRuntimeError", "SandboxError", "CircuitOpen"}
+_POLICY_ERRORS = {"PolicyDenied", "PolicyDeniedError"}
+_ROUTING_ERRORS = {"RoutingError", "UnknownAgent", "UnknownAgentError"}
+_SCHEMA_ERRORS = {"SchemaInvalid", "SchemaInvalidError"}
+_RETRIEVAL_ERRORS = {"RetrievalMiss", "RetrievalMissError"}
+_INTEGRITY_ERRORS = {
+    "AssertionError",
+    "StateIntegrityError",
+    "InvariantError",
+    "SemanticIntegrityError",
 }
 
 
@@ -67,52 +94,48 @@ class Healer:
         empty_retrieval: bool = False,
         domain_mismatch: bool = False,
         upstream_corrupt: bool = False,
+        incomplete_plan: bool = False,
     ) -> FailureClass:
-        """Classify execution failures using precedence-ranked environmental signals.
+        """Collect every environmental signal, then resolve one class by `PRECEDENCE`.
 
-        Note on F6 (Execution-State Inconsistency):
-        State integrity failures are signaled at runtime via sandbox environmental assertions,
-        checksum/dataframe invariant checks (state_integrity_ok=False / assertion_ok=False),
-        or explicit assertion exceptions (AssertionError / StateIntegrityError).
-        The offline evaluation oracle (bench/oracles.py) is strictly isolated and never accessed at runtime.
+        F6 (execution-state inconsistency) is signalled at runtime by sandbox assertions,
+        dataframe or checkpoint invariants (`state_integrity_ok=False`, `assertion_ok=False`) or an
+        explicit assertion error. The offline oracle in bench/ is never read at runtime.
+        F5 (decomposition) fires from `incomplete_plan`, set by the planner from generic signals.
         """
-        if blocked:
-            return FailureClass.F7_POLICY
-        if upstream_corrupt:
-            return FailureClass.F8_CASCADE
-        if unknown_column:
-            return FailureClass.F4_SCHEMA
-        if empty_retrieval:
-            return FailureClass.F2_RETRIEVAL
-        if domain_mismatch or (result and result.domain_mismatch):
-            return FailureClass.F3_ROUTING
         err = (result.error_class if result else None) or (span.error_class if span else None)
-        if err in {"Timeout", "TimeoutError_", "ToolRuntime", "ToolRuntimeError", "SandboxError", "CircuitOpen"}:
-            return FailureClass.F1_TOOL
-        if err in {"PolicyDenied", "PolicyDeniedError"}:
-            return FailureClass.F7_POLICY
-        if err in {"RoutingError", "UnknownAgent", "UnknownAgentError"}:
-            return FailureClass.F3_ROUTING
-        if err in {"SchemaInvalid", "SchemaInvalidError"}:
-            blob = ((result.text if result else None) or "").lower()
-            if "unknown table" in blob:
-                return FailureClass.F1_TOOL
-            return FailureClass.F4_SCHEMA
-        if err in {"RetrievalMiss", "RetrievalMissError"}:
-            return FailureClass.F2_RETRIEVAL
-        if err in {"AssertionError", "StateIntegrityError", "InvariantError", "SemanticIntegrityError"}:
-            return FailureClass.F6_SEMANTIC
-        if judge and judge.failure_class and judge.failure_class not in {"none", "NONE", ""}:
-            try:
-                return FailureClass(judge.failure_class.split("|")[0])
-            except ValueError:
-                if judge.overall < 2:
-                    return FailureClass.F6_SEMANTIC
-        if state_integrity_ok is False or assertion_ok is False or oracle_ok is False:
-            return FailureClass.F6_SEMANTIC
-        if result and not result.ok:
-            return FailureClass.F1_TOOL
-        return FailureClass.NONE
+        blob = ((result.text if result else None) or "").lower()
+        unknown_table = err in _SCHEMA_ERRORS and "unknown table" in blob
+        found: set[FailureClass] = set()
+        if blocked or err in _POLICY_ERRORS:
+            found.add(FailureClass.F7_POLICY)
+        if upstream_corrupt:
+            found.add(FailureClass.F8_CASCADE)
+        if unknown_column or (err in _SCHEMA_ERRORS and not unknown_table):
+            found.add(FailureClass.F4_SCHEMA)
+        if err in _TOOL_ERRORS or unknown_table:
+            found.add(FailureClass.F1_TOOL)
+        if empty_retrieval or err in _RETRIEVAL_ERRORS:
+            found.add(FailureClass.F2_RETRIEVAL)
+        if incomplete_plan:
+            found.add(FailureClass.F5_DECOMPOSITION)
+        if domain_mismatch or (result and result.domain_mismatch) or err in _ROUTING_ERRORS:
+            found.add(FailureClass.F3_ROUTING)
+        if err in _INTEGRITY_ERRORS or state_integrity_ok is False or assertion_ok is False or oracle_ok is False:
+            found.add(FailureClass.F6_SEMANTIC)
+        found |= self._from_judge(judge)
+        if not found and result and not result.ok:
+            found.add(FailureClass.F1_TOOL)
+        return next((fc for fc in PRECEDENCE if fc in found), FailureClass.NONE)
+
+    @staticmethod
+    def _from_judge(judge: Optional[JudgeCard]) -> set[FailureClass]:
+        if not judge or not judge.failure_class or judge.failure_class in {"none", "NONE", ""}:
+            return set()
+        try:
+            return {FailureClass(judge.failure_class.split("|")[0])}
+        except ValueError:
+            return {FailureClass.F6_SEMANTIC} if judge.overall < 2 else set()
 
     def heal(self, failure_class: FailureClass, *, hint: str = "", retry_only: bool = False) -> HealDecision:
         if failure_class == FailureClass.NONE:

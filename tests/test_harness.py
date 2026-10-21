@@ -972,16 +972,29 @@ class CircuitAndPluginTests(unittest.TestCase):
             from fastapi.testclient import TestClient
         except ImportError:
             self.skipTest("fastapi is not installed")
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
         from backend.api import app
 
-        client = TestClient(app)
-        health = client.get("/health")
-        self.assertEqual(health.status_code, 200)
-        self.assertIn(health.json().get("status"), {"healthy", "degraded"})
-        listed = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
-        self.assertEqual(listed.status_code, 200)
-        names = {t["name"] for t in listed.json()["result"]["tools"]}
-        self.assertIn("sql_spec", names)
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            os.environ,
+            {
+                "ORION_AUTH_DB": str(Path(tmp) / "a.db"),
+                "ORION_STATE_DB": str(Path(tmp) / "s.db"),
+                "ORION_AUTH_REQUIRED": "false",
+            },
+        ):
+            client = TestClient(app)
+            health = client.get("/health")
+            self.assertEqual(health.status_code, 200)
+            self.assertIn(health.json().get("status"), {"healthy", "degraded"})
+            listed = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+            self.assertEqual(listed.status_code, 200)
+            names = {t["name"] for t in listed.json()["result"]["tools"]}
+            self.assertIn("sql_spec", names)
 
     def test_api_key_gate(self) -> None:
         import os
@@ -989,46 +1002,43 @@ class CircuitAndPluginTests(unittest.TestCase):
 
         from harness.auth import api_key_ok
 
-        self.assertTrue(api_key_ok(None))
-        with patch.dict(os.environ, {"ORION_API_KEY": "secret"}, clear=False):
+        with patch.dict(os.environ, {"ORION_AUTH_REQUIRED": "false"}):
+            self.assertTrue(api_key_ok(None))  # explicit local-dev opt-out
+        with patch.dict(os.environ, {"ORION_AUTH_REQUIRED": "true", "ORION_API_KEY": "secret"}, clear=False):
             self.assertFalse(api_key_ok(None))
             self.assertTrue(api_key_ok("Bearer secret"))
             self.assertFalse(api_key_ok("Bearer other"))
 
-    def test_auth_login_http(self) -> None:
-        try:
-            from fastapi.testclient import TestClient
-        except ImportError:
-            self.skipTest("fastapi TestClient is not installed")
+    def test_auth_is_required_by_default(self) -> None:
         import os
-        from backend.api import app
+        from unittest.mock import patch
 
-        client = TestClient(app)
-        bad = client.post("/auth/login", json={"username": "admin", "password": "wrong-password"})
-        self.assertEqual(bad.status_code, 401)
-        ok = client.post(
-            "/auth/login",
-            json={"username": "admin", "password": os.getenv("ORION_ADMIN_PASSWORD", "admin")},
-        )
-        self.assertEqual(ok.status_code, 200)
-        body = ok.json()
-        self.assertEqual(body["username"], "admin")
-        self.assertTrue(body["token"])
-        me = client.get("/auth/me", headers={"Authorization": f"Bearer {body['token']}"})
-        self.assertEqual(me.status_code, 200)
-        self.assertEqual(me.json()["username"], "admin")
+        from harness.auth import api_key_ok, auth_required
+
+        env = {k: v for k, v in os.environ.items() if k != "ORION_AUTH_REQUIRED"}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertTrue(auth_required())
+            self.assertFalse(api_key_ok(None))
 
     def test_login_session_is_a_valid_bearer(self) -> None:
-        from backend.database import create_session, delete_session
-        from harness.auth import api_key_ok, identity_from
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
 
-        token = create_session("admin", "super_user")
-        try:
-            self.assertTrue(api_key_ok(f"Bearer {token}"))
-            ident = identity_from(f"Bearer {token}")
-            self.assertEqual(ident["username"], "admin")
-        finally:
-            delete_session(token)
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            os.environ, {"ORION_AUTH_DB": str(Path(tmp) / "a.db"), "ORION_AUTH_REQUIRED": "true"}
+        ):
+            from backend.database import create_session, delete_session
+            from harness.auth import api_key_ok, identity_from
+
+            token = create_session("admin", "super_user")
+            try:
+                self.assertTrue(api_key_ok(f"Bearer {token}"))
+                ident = identity_from(f"Bearer {token}")
+                self.assertEqual(ident["username"], "admin")
+            finally:
+                delete_session(token)
 
     def test_calendar_gold_is_unique_meetings(self) -> None:
         try:

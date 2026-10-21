@@ -50,6 +50,11 @@ outputs/audit_log.jsonl
 *.log
 
 # Web build artifacts
+orion_auth.db
+orion_state.db
+*.db-wal
+*.db-shm
+*.lock
 web/node_modules/
 web/.next/
 web/out/

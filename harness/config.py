@@ -31,58 +31,45 @@ CHROMA_DIR = PROJECT_ROOT / "chroma_db"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 EMBEDDING_DIM = 384
 
-# Collections match existing ChromaDB names so a rebuilt index is not required on day one.
-COLLECTION_HR = "hr_data"
-COLLECTION_FINANCE = "finance_data"
-COLLECTION_SCHEDULER = "scheduler_data"
-COLLECTION_KB = "kb_live"  # product chat only; never in KNOWN_COLLECTIONS / retrieve()
-KNOWN_COLLECTIONS = (COLLECTION_HR, COLLECTION_FINANCE, COLLECTION_SCHEDULER)
+COLLECTION_KB = "kb_live"  # product chat only; never part of a pack's eval collections
 
-ALLOWED_ENTITIES = ("MSFT", "AAPL", "MNC", "FRED", "SYNTH_CAL", "KB")
-
-# Legal joins: sources that may be combined in one answer. Anything else must abstain.
-# Undirected: AAPL+SYNTH_CAL is calendar context, not a payroll/10-K mix.
-LEGAL_JOINS: dict[str, frozenset[str]] = {
-    "AAPL": frozenset({"AAPL", "FRED", "SYNTH_CAL"}),
-    "FRED": frozenset({"AAPL", "FRED", "MSFT"}),  # macros may accompany a filing
-    "MSFT": frozenset({"MSFT", "FRED"}),
-    "MNC": frozenset({"MNC"}),
-    "SYNTH_CAL": frozenset({"SYNTH_CAL", "AAPL"}),
-    "KB": frozenset({"KB"}),  # live uploads never join the paper lake
+# Lake knowledge (collections, entities, joins, egress hosts) is supplied by the loaded domain
+# packs. These names stay importable from here for backward compatibility and resolve lazily.
+_PACK_ATTRS = {
+    "COLLECTION_HR",
+    "COLLECTION_FINANCE",
+    "COLLECTION_SCHEDULER",
+    "KNOWN_COLLECTIONS",
+    "ALLOWED_ENTITIES",
+    "LEGAL_JOINS",
+    "EGRESS_ALLOWLIST",
 }
 
 
 def entities_join_legal(entities: list[str]) -> tuple[bool, str]:
-    """True iff every named entity is allowed to appear with every other."""
-    ents = []
-    for raw in entities:
-        token = str(raw or "").strip().upper()
-        if token:
-            ents.append(token)
-    ents = list(dict.fromkeys(ents))
-    if len(ents) <= 1:
-        return True, "single entity or empty"
-    unknown = [e for e in ents if e not in LEGAL_JOINS]
-    if unknown:
-        return False, f"unknown entity {unknown[0]}. known: {list(ALLOWED_ENTITIES)}"
-    wanted = set(ents)
-    for e in ents:
-        if not wanted.issubset(LEGAL_JOINS[e]):
-            blocked = sorted(wanted - LEGAL_JOINS[e])
-            return False, f"{e} cannot join {blocked} (illegal mix; abstain)"
-    return True, "legal join"
+    """True iff every named entity is allowed to appear with every other (see harness.packs)."""
+    from harness.packs import registry
 
-EGRESS_ALLOWLIST = (
-    "sec.gov",
-    "www.sec.gov",
-    "data.sec.gov",
-    "api.stlouisfed.org",
-    "fred.stlouisfed.org",
-    "www.apple.com",
-    "apple.com",
-    "www.microsoft.com",
-    "microsoft.com",
-)
+    return registry().entities_join_legal(entities)
+
+
+def __getattr__(name: str):
+    if name in _PACK_ATTRS:
+        from harness.packs import registry
+
+        reg = registry()
+        if name == "ALLOWED_ENTITIES":
+            return reg.allowed_entities()
+        if name == "LEGAL_JOINS":
+            return reg.legal_joins()
+        if name == "EGRESS_ALLOWLIST":
+            return reg.egress_allowlist()
+        if name == "KNOWN_COLLECTIONS":
+            return reg.known_collections()
+        from packs.enterprise_lake import policy
+
+        return getattr(policy, name)  # COLLECTION_* names of the default pack
+    raise AttributeError(f"module 'harness.config' has no attribute {name!r}")
 
 
 @dataclass(frozen=True)
@@ -127,6 +114,8 @@ class Settings:
     tool_preview_chars: int = 1200
     eval_every: int = 4
     skill_topk: int = 2
+    parallel_workers: int = 4
+    node_timeout_s: float = 0.0  # 0 = bounded only by the request budget
     cors_origins: tuple[str, ...] = (
         "http://localhost:7860",
         "http://127.0.0.1:7860",
@@ -173,7 +162,21 @@ def get_settings() -> Settings:
         eval_every=int(os.getenv("ORION_EVAL_EVERY", "4")),
         skill_topk=int(os.getenv("ORION_SKILL_TOPK", "2")),
         llm_timeout_s=float(os.getenv("ORION_LLM_TIMEOUT", "90")),
+        circuit_fail_threshold=int(os.getenv("ORION_CIRCUIT_THRESHOLD", "3")),
+        circuit_cooldown_s=float(os.getenv("ORION_CIRCUIT_COOLDOWN", "30")),
+        router_topk=int(os.getenv("ORION_ROUTER_TOPK", "3")),
+        retrieve_k=int(os.getenv("ORION_RETRIEVE_K", "8")),
+        parallel_workers=max(1, int(os.getenv("ORION_PARALLEL_WORKERS", "4"))),
+        node_timeout_s=float(os.getenv("ORION_NODE_TIMEOUT", "0") or 0),
+        **_cors_override(),
     )
+
+
+def _cors_override() -> dict:
+    raw = os.getenv("ORION_CORS_ORIGINS", "").strip()
+    if not raw:
+        return {}
+    return {"cors_origins": tuple(o.strip() for o in raw.split(",") if o.strip())}
 
 
 def ensure_dirs() -> None:

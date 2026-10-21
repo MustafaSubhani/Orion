@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from harness.context import RequestContext
+from harness.context import RequestContext, is_product
 from harness.errors import HarnessError, SandboxError
+from harness.packs import registry as pack_registry
+from harness.tool_registry import rebind_verb
 from harness.types import AgentCard, SpanKind, WorkerResult
 from harness.trace import get_tracer
-from retrieval.tables import schema_text
 
 
 def run_worker(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
@@ -47,7 +48,7 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
             if extra not in tool_names:
                 tool_names.append(extra)
     schemas = tools.openai_tools(tool_names)
-    schema = schema_text(include_kb=bool(ctx.extra.get("kb_enabled")))
+    schema = pack_registry().schema_text(include_kb=bool(ctx.extra.get("kb_enabled")))
     if estimate_tokens(schema) > 900:
         schema = schema[:2400] + "\n…schema truncated; unknown columns come back as SchemaInvalid with the real list."
     lake_label = "Frozen tables + live KB (uploads are not eval gold):\n" if ctx.extra.get("kb_enabled") else "Frozen tables:\n"
@@ -91,6 +92,10 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
     preview_chars = settings.tool_preview_chars
     eval_every = max(2, settings.eval_every)
     last_fail: dict[str, str] = {}
+    fail_call_ids: dict[str, str] = {}
+    rebinds: list[str] = []
+    product_mode = is_product(ctx)
+    ctx.extra["allowed_verbs"] = list(tool_names)
     recoveries = 0
     last_error = ""
     n_calls = 0
@@ -138,6 +143,11 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
                     }
                 )
                 for tc in resp.tool_calls:
+                    if tc.verb not in tool_names and product_mode:
+                        matched = rebind_verb(tc.verb, tool_names)
+                        if matched:
+                            rebinds.append(f"{tc.verb}->{matched}")
+                            tc.verb = matched
                     if tc.verb not in tool_names:
                         result_text = f"PolicyDenied: agent '{card.id}' cannot call '{tc.verb}'"
                         messages.append({"role": "tool", "tool_call_id": tc.id, "content": result_text})
@@ -155,11 +165,19 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
                             last_empty_retrieval = True
                         for chunk in data.get("chunks") or []:
                             citations.append(str(chunk.get("chunk_id")))
-                    raw = result.preview if result.ok else f"{result.error_class}: {result.error}"
+                    if result.ok:
+                        raw = result.preview
+                    elif product_mode:
+                        raw = _typed_error_line(result.error_class, result.error)
+                    else:
+                        raw = f"{result.error_class}: {result.error}"
                     if not result.ok:
                         last_fail[tc.verb] = raw
                         last_error = raw
+                        fail_call_ids[tc.verb] = tc.id
                     elif tc.verb in last_fail:
+                        if product_mode:
+                            _collapse_failure(messages, fail_call_ids.pop(tc.verb, ""), tc.verb)
                         store.remember_recovery(
                             verb=tc.verb,
                             error=last_fail.pop(tc.verb),
@@ -208,7 +226,34 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
             span.extra["artifacts"] = len(ctx.session)
             span.extra["skills_loaded"] = [s.slug for s in loaded]
             span.extra["recoveries"] = recoveries
+            if rebinds:
+                span.extra["rebound_tools"] = rebinds
             span.extra["self_evals"] = n_calls // eval_every if eval_every else 0
+
+
+_ERROR_HINTS = {
+    "SchemaInvalid": "call schema_lookup and use only the listed columns",
+    "RetrievalMiss": "broaden the query or lower filters",
+    "UnknownTool": "call search_tools to see allowed verbs",
+}
+
+
+def _typed_error_line(error_class: str | None, message: str | None) -> str:
+    """One-line typed error for the model. Raw tracebacks never enter the transcript."""
+    cls = error_class or "ToolRuntime"
+    text = " ".join(str(message or "").split())[:240]
+    hint = _ERROR_HINTS.get(cls)
+    return f"[{cls}] {text}" + (f" Hint: {hint}." if hint else "")
+
+
+def _collapse_failure(messages: list[dict], call_id: str, verb: str) -> None:
+    """After a later success, replace the earlier failure turn with a marker (scratchpad pruning)."""
+    if not call_id:
+        return
+    for msg in messages:
+        if msg.get("role") == "tool" and msg.get("tool_call_id") == call_id:
+            msg["content"] = f"[recovered] earlier {verb} error resolved"
+            return
 
 
 def _looks_like_abstain(text: str) -> bool:
@@ -217,7 +262,5 @@ def _looks_like_abstain(text: str) -> bool:
 
 
 def _domain_mismatch(card: AgentCard, task: str, text: str) -> bool:
-    t = (task + " " + text).lower()
-    if card.id == "hr" and any(w in t for w in ("10-k", "netsales", "cpi")) and "employee" not in t:
-        return True
-    return False
+    """F3 signal. The heuristic belongs to the domain pack, because it is about the pack's data."""
+    return pack_registry().domain_mismatch(card.id, task, text)

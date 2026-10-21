@@ -59,10 +59,36 @@ def load_catalog() -> dict[str, Any]:
 
 
 def save_catalog(data: dict[str, Any]) -> None:
+    from harness.fsutil import atomic_write
+
     ensure_kb_dirs()
-    tmp = catalog_path().with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(catalog_path())
+    atomic_write(catalog_path(), json.dumps(data, indent=2, ensure_ascii=False))
+
+
+def delete_resource(resource_id: str) -> bool:
+    """Remove a resource, its file, its table, and its chunks. Returns False if it does not exist."""
+    with _LOCK:
+        cat = load_catalog()
+        record = next((r for r in cat["resources"] if r.get("id") == resource_id), None)
+        if record is None:
+            return False
+        cat["resources"] = [r for r in cat["resources"] if r.get("id") != resource_id]
+        table_name = record.get("table")
+        meta = cat["tables"].pop(table_name, None) if table_name else None
+        save_catalog(cat)
+    for path in files_dir().glob(f"{resource_id}_*"):
+        path.unlink(missing_ok=True)
+    (chunks_dir() / f"{resource_id}.jsonl").unlink(missing_ok=True)
+    if meta and meta.get("path"):
+        (root() / str(meta["path"])).unlink(missing_ok=True)
+    try:
+        from harness.config import COLLECTION_KB
+        from retrieval.vector_store import get_or_create_collection
+
+        get_or_create_collection(COLLECTION_KB).delete(where={"resource_id": resource_id})
+    except Exception:  # the vector index is optional; the catalog is the source of truth
+        pass
+    return True
 
 
 def upsert_resource(record: dict[str, Any], table: dict[str, Any] | None = None) -> dict[str, Any]:

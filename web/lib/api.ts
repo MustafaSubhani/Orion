@@ -48,7 +48,7 @@ function cleanText(value: string): string {
 async function readError(res: Response): Promise<string> {
   try {
     const body = await res.json();
-    const detail = body.detail ?? body.message;
+    const detail = body?.error?.message ?? body.detail ?? body.message;
     if (Array.isArray(detail)) {
       return detail.map((item) => item.msg || JSON.stringify(item)).join("; ");
     }
