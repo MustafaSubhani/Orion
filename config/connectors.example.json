@@ -1,0 +1,23 @@
+{
+  "connectors": [
+    {
+      "id": "warehouse",
+      "type": "sqlalchemy",
+      "url_env": "ORION_DB_WAREHOUSE_URL",
+      "entity": "WAREHOUSE",
+      "legal_joins": [],
+      "cues": ["warehouse", "inventory"],
+      "tables": ["orders", "customers"],
+      "sensitive_columns": { "limited": ["email", "ssn"] },
+      "row_cap": 200,
+      "statement_timeout_s": 15
+    },
+    {
+      "id": "exports",
+      "type": "files",
+      "path": "D:/data/exports",
+      "entity": "EXPORTS",
+      "sensitive_columns": { "limited": ["salary"] }
+    }
+  ]
+}

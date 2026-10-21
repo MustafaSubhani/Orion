@@ -145,7 +145,10 @@ class AgentRoutesTests(ApiTestCase):
             system_prompt="p", status=AgentStatus.ACTIVE, is_custom=True, is_builtin=False,
         )
         registry = get_registry()
-        with patch("harness.agent_registry.CUSTOM_PATH", Path(tempfile.mkdtemp()) / "custom.json"):
+        scratch = Path(tempfile.mkdtemp())
+        original_versions = registry.versions.path
+        registry.versions.path = scratch / "versions.json"  # never write the tracked outputs/ file
+        with patch("harness.agent_registry.CUSTOM_PATH", scratch / "custom.json"):
             registry.register(card, actor="test")
             try:
                 admin = self.admin()
@@ -160,6 +163,8 @@ class AgentRoutesTests(ApiTestCase):
                 )
             finally:
                 registry.delete("test_custom_agent")
+                registry.versions.path = original_versions
+                registry.versions._data.pop("test_custom_agent", None)
 
 
 class ChatRoutesTests(ApiTestCase):

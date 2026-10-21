@@ -22,6 +22,7 @@ class PackRegistry:
     def __init__(self, packs: Iterable[Any]) -> None:
         self.packs: list[Any] = list(packs)
         self._extensions: dict[str, dict[str, frozenset[str]]] = {}
+        self._extension_cues: dict[str, dict[str, tuple]] = {}
         self._lock = threading.RLock()
 
     # ---------------------------------------------------------------- helpers
@@ -92,14 +93,24 @@ class PackRegistry:
         merged[KB_ENTITY] = frozenset({KB_ENTITY})  # live uploads never join anything else
         return merged
 
-    def extend_entities(self, source: str, joins: dict[str, frozenset[str]]) -> None:
-        """Add or replace entities contributed at runtime (data connectors). Keyed by `source`."""
+    def extend_entities(
+        self,
+        source: str,
+        joins: dict[str, frozenset[str]],
+        cues: Optional[dict[str, tuple]] = None,
+    ) -> None:
+        """Add or replace entities (and optional mention cues) contributed at runtime. Keyed by `source`."""
         with self._lock:
             self._extensions[source] = {k.upper(): frozenset(v) for k, v in joins.items()}
+            if cues:
+                self._extension_cues[source] = {k.upper(): tuple(v) for k, v in cues.items()}
+            else:
+                self._extension_cues.pop(source, None)
 
     def remove_extension(self, source: str) -> None:
         with self._lock:
             self._extensions.pop(source, None)
+            self._extension_cues.pop(source, None)
 
     def entities_join_legal(self, entities: list[str]) -> tuple[bool, str]:
         """True iff every named entity may appear with every other."""
@@ -125,7 +136,9 @@ class PackRegistry:
     def detect_entities(self, text: str) -> list[str]:
         blob = text or ""
         found: list[str] = []
-        for cues in self._each("entity_cues"):
+        with self._lock:
+            runtime_cues = list(self._extension_cues.values())
+        for cues in [*self._each("entity_cues"), *runtime_cues]:
             for entity, patterns in cues.items():
                 if entity not in found and any(p.search(blob) for p in patterns):
                     found.append(entity)

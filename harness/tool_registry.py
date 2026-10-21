@@ -73,6 +73,14 @@ class ToolRegistry:
         self._manifests[manifest.verb] = manifest
         self._handlers[manifest.verb] = handler
 
+    def wrap(self, verb: str, wrapper: Callable[[Handler], Handler]) -> bool:
+        """Replace a registered handler with `wrapper(handler)`. Returns False if the verb is unknown."""
+        handler = self._handlers.get(verb)
+        if handler is None:
+            return False
+        self._handlers[verb] = wrapper(handler)
+        return True
+
     def manifest(self, verb: str) -> Optional[ToolManifest]:
         return self._manifests.get(verb)
 
@@ -396,6 +404,9 @@ class ToolRegistry:
             manifest = self._manifests.get(verb)
             if manifest is not None:
                 self._manifests[verb] = dataclasses.replace(manifest, description=text)
+        from harness.connectors import install_tool_wrappers
+
+        install_tool_wrappers(self)
 
 
 def rebind_verb(verb: str, allowed: list[str], cutoff: float = 0.8) -> Optional[str]:

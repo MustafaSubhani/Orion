@@ -61,6 +61,14 @@ def execute_sql_spec(spec: dict[str, Any], *, role: Optional[str] = None, allow_
         if drop:
             df = df.drop(columns=drop)
 
+    return run_spec_on_frame(df, spec, table=table, entity=table_entity(table))
+
+
+def run_spec_on_frame(df: pd.DataFrame, spec: dict[str, Any], *, table: str, entity: str) -> dict[str, Any]:
+    """Apply an allow-listed spec (filters, group_by, agg, sort, limit) to a DataFrame.
+
+    Shared by frozen tables and file connectors. Unknown columns raise SchemaInvalidError (F4).
+    """
     orphan = spec.get("column")
     if isinstance(orphan, str) and orphan.strip():
         if orphan not in df.columns:
@@ -133,7 +141,11 @@ def execute_sql_spec(spec: dict[str, Any], *, role: Optional[str] = None, allow_
     limit = int(spec.get("limit") or 50)
     limit = max(1, min(limit, 200))
     result = result.head(limit)
+    return result_payload(result, table=table, entity=entity)
 
+
+def result_payload(result: pd.DataFrame, *, table: str, entity: str) -> dict[str, Any]:
+    """Uniform tool payload (records, preview, hash) for any table-shaped result."""
     records = json.loads(result.to_json(orient="records", date_format="iso"))
     if result.empty:
         preview = "(empty)"
@@ -146,7 +158,7 @@ def execute_sql_spec(spec: dict[str, Any], *, role: Optional[str] = None, allow_
     return {
         "ok": True,
         "table": table,
-        "entity": table_entity(table),
+        "entity": entity,
         "rows": len(result),
         "columns": list(result.columns),
         "records": records,

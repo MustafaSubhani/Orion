@@ -51,6 +51,12 @@ def _react(card: AgentCard, task: str, ctx: RequestContext) -> WorkerResult:
     schema = pack_registry().schema_text(include_kb=bool(ctx.extra.get("kb_enabled")))
     if estimate_tokens(schema) > 900:
         schema = schema[:2400] + "\n…schema truncated; unknown columns come back as SchemaInvalid with the real list."
+    if is_product(ctx):
+        from harness.connectors import registry as connector_registry
+
+        connected = connector_registry().prompt_text(ctx.role)
+        if connected:
+            schema = schema + "\n--- connected data sources (read-only; address as connector.table) ---\n" + connected
     lake_label = "Frozen tables + live KB (uploads are not eval gold):\n" if ctx.extra.get("kb_enabled") else "Frozen tables:\n"
     system = card.system_prompt + "\n\n" + lake_label + schema
     if ctx.extra.get("kb_enabled"):

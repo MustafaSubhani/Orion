@@ -38,6 +38,30 @@ def reset_setting(key: str, admin: Identity = Depends(require_admin)) -> dict[st
     return next(r for r in settings_store.describe(admin.tenant) if r["key"] == key)
 
 
+@router.get("/connectors")
+def list_connectors(_: Identity = Depends(require_admin)) -> list[dict[str, Any]]:
+    from harness.connectors import registry
+
+    return [c.describe() for c in registry().all()]
+
+
+@router.post("/connectors/reload")
+def reload_connectors(_: Identity = Depends(require_admin)) -> dict[str, Any]:
+    from harness import connectors
+
+    return {"loaded": connectors.reload()}
+
+
+@router.post("/connectors/{connector_id}/test")
+def test_connector(connector_id: str, _: Identity = Depends(require_admin)) -> dict[str, Any]:
+    from harness.connectors import registry
+
+    connector = registry().get(connector_id)
+    if connector is None:
+        raise ApiError(404, "not_found", f"Unknown connector '{connector_id}'")
+    return connector.test()
+
+
 def _user_out(row: dict[str, Any]) -> UserOut:
     return UserOut(
         username=row["username"],

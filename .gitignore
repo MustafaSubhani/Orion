@@ -60,3 +60,5 @@ web/.next/
 web/out/
 node_modules/
 .next/
+outputs/agent_versions.json
+outputs/custom_agents.json
